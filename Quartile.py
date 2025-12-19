@@ -34,6 +34,9 @@ with st.sidebar.expander("📤 Upload KATEGORI", expanded=True):
 # =========================
 def safe_read_excel(file, sheet, skiprows=0):
     try:
+        xls = pd.ExcelFile(file)
+        if sheet not in xls.sheet_names:
+            return pd.DataFrame()
         df = pd.read_excel(file, sheet_name=sheet, skiprows=skiprows)
         df.columns = df.columns.astype(str).str.strip()
         return df
@@ -47,6 +50,9 @@ def pick_highest_q(files):
     return None
 
 def process_files(files, is_category=False):
+    if not any(files.values()):
+        return pd.DataFrame()
+
     result = {}
     # YTD
     for q, col in zip(["Q1","Q2","Q3","Q4"], ["YTD Q1","YTD Q2","YTD Q3","YTD Q4"]):
@@ -55,6 +61,7 @@ def process_files(files, is_category=False):
             key = next((c for c in df.columns if "Product" in c), None)
             val = next((c for c in df.columns if "vs LY" in c), None)
             if key and val:
+                df[key] = df[key].astype(str)
                 df = df[~df[key].str.lower().eq("grand total")]
                 if is_category:
                     df = df[~df[key].str.lower().eq("others")]
@@ -69,6 +76,7 @@ def process_files(files, is_category=False):
     key = next((c for c in df.columns if "Product" in c), None)
     val = next((c for c in df.columns if "Total Current DO TP2" in c), None)
     if key and val:
+        df[key] = df[key].astype(str)
         df = df[~df[key].str.lower().eq("grand total")]
         if is_category:
             df = df[~df[key].str.lower().eq("others")]
@@ -79,6 +87,7 @@ def process_files(files, is_category=False):
     key = next((c for c in df.columns if "Product" in c), None)
     val = next((c for c in df.columns if "vs LY" in c), None)
     if key and val:
+        df[key] = df[key].astype(str)
         df = df[~df[key].str.lower().eq("grand total")]
         if is_category:
             df = df[~df[key].str.lower().eq("others")]
@@ -89,6 +98,7 @@ def process_files(files, is_category=False):
     key = next((c for c in df.columns if "Product" in c), None)
     val = next((c for c in df.columns if "vs L3M" in c), None)
     if key and val:
+        df[key] = df[key].astype(str)
         df = df[~df[key].str.lower().eq("grand total")]
         if is_category:
             df = df[~df[key].str.lower().eq("others")]
@@ -97,7 +107,7 @@ def process_files(files, is_category=False):
     return pd.DataFrame(result).fillna(0)
 
 # =========================
-# Load Data
+# Load Data (Hanya jika ada file)
 # =========================
 df_format = process_files(format_files, is_category=False)
 df_category = process_files(category_files, is_category=True)
@@ -174,11 +184,10 @@ for c in df_final_display.columns:
     elif c in df_display.columns.get_level_values(1):
         df_display[("Growth",c)] = df_final_display[c]/100
 
-# Format ke persen 2 desimal
 df_display = df_display.applymap(lambda x: f"{x*100:.2f}%" if pd.notnull(x) else "0.00%")
 
 # =========================
-# Tanggal Cut Off Manual Bahasa Indonesia
+# Cut-off Tanggal Bahasa Indonesia
 # =========================
 bulan_id = {
     1: "Januari", 2: "Februari", 3: "Maret", 4: "April",
@@ -203,10 +212,7 @@ def to_excel(df, cut_off_str):
     percent_fmt = wb.add_format({'align': 'center','border':1,'num_format':'0.00%'})
     cut_off_fmt = wb.add_format({'bold': True, 'align':'left'})
 
-    # Baris Cut Off
     ws.write(0, 0, f"Cut Off: {cut_off_str}", cut_off_fmt)
-
-    # Header
     ws.write(1, 0, "Format/Kategori", header)
     ws.write(1, 1, "Sell In YTD", header)
     ws.merge_range(1,2,1,7,"Growth", header)
