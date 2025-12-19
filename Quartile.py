@@ -33,26 +33,26 @@ with st.sidebar.expander("📤 Upload KATEGORI", expanded=True):
 # Helper Functions
 # =========================
 def safe_read_excel(file, sheet, skiprows=0):
-    """Baca sheet Excel aman, return DataFrame kosong jika sheet tidak ada"""
+    """Baca sheet Excel aman, pakai openpyxl"""
     try:
-        xls = pd.ExcelFile(file)
+        xls = pd.ExcelFile(file, engine='openpyxl')
         if sheet not in xls.sheet_names:
+            st.warning(f"⚠️ Sheet {sheet} tidak ditemukan.")
             return pd.DataFrame()
-        df = pd.read_excel(file, sheet_name=sheet, skiprows=skiprows)
+        df = pd.read_excel(file, sheet_name=sheet, skiprows=skiprows, engine='openpyxl')
         df.columns = df.columns.astype(str).str.strip()
         return df
-    except Exception:
+    except Exception as e:
+        st.error(f"Gagal baca sheet {sheet}: {e}")
         return pd.DataFrame()
 
 def pick_highest_q(files):
-    """Ambil file Q tertinggi yang ada (Q4 > Q3 > Q2 > Q1)"""
     for q in ["Q4", "Q3", "Q2", "Q1"]:
         if files.get(q):
             return files[q]
     return None
 
 def process_files(files, is_category=False):
-    """Proses file excel menjadi DataFrame sesuai kebutuhan"""
     if not any(files.values()):
         return pd.DataFrame()
 
@@ -61,6 +61,8 @@ def process_files(files, is_category=False):
     for q, col in zip(["Q1","Q2","Q3","Q4"], ["YTD Q1","YTD Q2","YTD Q3","YTD Q4"]):
         if files.get(q):
             df = safe_read_excel(files[q], "Sheet 5", skiprows=1)
+            if df.empty:
+                continue
             key = next((c for c in df.columns if "Product" in c), None)
             val = next((c for c in df.columns if "vs LY" in c), None)
             if key and val:
@@ -76,42 +78,44 @@ def process_files(files, is_category=False):
 
     # CONT
     df = safe_read_excel(latest, "Sheet 18", skiprows=0)
-    key = next((c for c in df.columns if "Product" in c), None)
-    val = next((c for c in df.columns if "Total Current DO TP2" in c), None)
-    if key and val:
-        df[key] = df[key].astype(str)
-        df = df[~df[key].str.lower().eq("grand total")]
-        if is_category:
-            df = df[~df[key].str.lower().eq("others")]
-        result["Cont"] = df.set_index(key)[val]
+    if not df.empty:
+        key = next((c for c in df.columns if "Product" in c), None)
+        val = next((c for c in df.columns if "Total Current DO TP2" in c), None)
+        if key and val:
+            df[key] = df[key].astype(str)
+            df = df[~df[key].str.lower().eq("grand total")]
+            if is_category:
+                df = df[~df[key].str.lower().eq("others")]
+            result["Cont"] = df.set_index(key)[val]
 
     # MTD
     df = safe_read_excel(latest, "Sheet 4", skiprows=1)
-    key = next((c for c in df.columns if "Product" in c), None)
-    val = next((c for c in df.columns if "vs LY" in c), None)
-    if key and val:
-        df[key] = df[key].astype(str)
-        df = df[~df[key].str.lower().eq("grand total")]
-        if is_category:
-            df = df[~df[key].str.lower().eq("others")]
-        result["MTD"] = df.set_index(key)[val]
+    if not df.empty:
+        key = next((c for c in df.columns if "Product" in c), None)
+        val = next((c for c in df.columns if "vs LY" in c), None)
+        if key and val:
+            df[key] = df[key].astype(str)
+            df = df[~df[key].str.lower().eq("grand total")]
+            if is_category:
+                df = df[~df[key].str.lower().eq("others")]
+            result["MTD"] = df.set_index(key)[val]
 
     # %Gr L3M
     df = safe_read_excel(latest, "Sheet 3", skiprows=1)
-    key = next((c for c in df.columns if "Product" in c), None)
-    val = next((c for c in df.columns if "vs L3M" in c), None)
-    if key and val:
-        df[key] = df[key].astype(str)
-        df = df[~df[key].str.lower().eq("grand total")]
-        if is_category:
-            df = df[~df[key].str.lower().eq("others")]
-        result["%Gr L3M MTD"] = df.set_index(key)[val]
+    if not df.empty:
+        key = next((c for c in df.columns if "Product" in c), None)
+        val = next((c for c in df.columns if "vs L3M" in c), None)
+        if key and val:
+            df[key] = df[key].astype(str)
+            df = df[~df[key].str.lower().eq("grand total")]
+            if is_category:
+                df = df[~df[key].str.lower().eq("others")]
+            result["%Gr L3M MTD"] = df.set_index(key)[val]
 
     return pd.DataFrame(result).fillna(0)
 
 # =========================
 # Proses hanya jika ada file di-upload
-# =========================
 if any(format_files.values()) or any(category_files.values()):
     df_format = process_files(format_files, is_category=False)
     df_category = process_files(category_files, is_category=True)
@@ -120,14 +124,14 @@ else:
     st.stop()
 
 # =========================
-# Debug: cek apakah dataframe terisi
+# Debug: cek sheet & kolom
 st.write("Debug: Format DataFrame")
 st.write(df_format)
 st.write("Debug: Kategori DataFrame")
 st.write(df_category)
 
 # =========================
-# Filter Selection (gunakan fallback jika kosong)
+# Filter Selection
 format_options = df_format.index.astype(str).tolist() if not df_format.empty else ["-Data Kosong-"]
 category_options = df_category.index.astype(str).tolist() if not df_category.empty else ["-Data Kosong-"]
 
@@ -162,7 +166,7 @@ if selected_category and not df_category.empty:
     df_cat_final = df_category.loc[selected_category]
 
 # =========================
-# Merge Display (Kategori di atas, Format di bawah)
+# Merge Display
 display_frames = []
 if not df_cat_final.empty:
     df_cat_display = df_cat_final.copy()
