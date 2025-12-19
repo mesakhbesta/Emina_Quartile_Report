@@ -11,7 +11,7 @@ st.title("Quartile Report Emina")
 # =========================
 # Sidebar: Upload + Cut Off
 # =========================
-cut_off_date = st.sidebar.date_input("📅 Tanggal Cut Off", value=datetime.today())
+cut_off_date = st.sidebar.date_input("📅 Tanggal Cut Off")
 
 with st.sidebar.expander("📤 Upload FORMAT", expanded=True):
     format_files = {
@@ -33,17 +33,11 @@ with st.sidebar.expander("📤 Upload KATEGORI", expanded=True):
 # Helper Functions
 # =========================
 def safe_read_excel(file, sheet, skiprows=0):
-    """Baca sheet Excel aman, pakai openpyxl"""
     try:
-        xls = pd.ExcelFile(file, engine='openpyxl')
-        if sheet not in xls.sheet_names:
-            st.warning(f"⚠️ Sheet {sheet} tidak ditemukan.")
-            return pd.DataFrame()
-        df = pd.read_excel(file, sheet_name=sheet, skiprows=skiprows, engine='openpyxl')
+        df = pd.read_excel(file, sheet_name=sheet, skiprows=skiprows)
         df.columns = df.columns.astype(str).str.strip()
         return df
-    except Exception as e:
-        st.error(f"Gagal baca sheet {sheet}: {e}")
+    except Exception:
         return pd.DataFrame()
 
 def pick_highest_q(files):
@@ -53,20 +47,14 @@ def pick_highest_q(files):
     return None
 
 def process_files(files, is_category=False):
-    if not any(files.values()):
-        return pd.DataFrame()
-
     result = {}
     # YTD
     for q, col in zip(["Q1","Q2","Q3","Q4"], ["YTD Q1","YTD Q2","YTD Q3","YTD Q4"]):
         if files.get(q):
             df = safe_read_excel(files[q], "Sheet 5", skiprows=1)
-            if df.empty:
-                continue
             key = next((c for c in df.columns if "Product" in c), None)
             val = next((c for c in df.columns if "vs LY" in c), None)
             if key and val:
-                df[key] = df[key].astype(str)
                 df = df[~df[key].str.lower().eq("grand total")]
                 if is_category:
                     df = df[~df[key].str.lower().eq("others")]
@@ -78,76 +66,62 @@ def process_files(files, is_category=False):
 
     # CONT
     df = safe_read_excel(latest, "Sheet 18", skiprows=0)
-    if not df.empty:
-        key = next((c for c in df.columns if "Product" in c), None)
-        val = next((c for c in df.columns if "Total Current DO TP2" in c), None)
-        if key and val:
-            df[key] = df[key].astype(str)
-            df = df[~df[key].str.lower().eq("grand total")]
-            if is_category:
-                df = df[~df[key].str.lower().eq("others")]
-            result["Cont"] = df.set_index(key)[val]
+    key = next((c for c in df.columns if "Product" in c), None)
+    val = next((c for c in df.columns if "Total Current DO TP2" in c), None)
+    if key and val:
+        df = df[~df[key].str.lower().eq("grand total")]
+        if is_category:
+            df = df[~df[key].str.lower().eq("others")]
+        result["Cont"] = df.set_index(key)[val]
 
     # MTD
     df = safe_read_excel(latest, "Sheet 4", skiprows=1)
-    if not df.empty:
-        key = next((c for c in df.columns if "Product" in c), None)
-        val = next((c for c in df.columns if "vs LY" in c), None)
-        if key and val:
-            df[key] = df[key].astype(str)
-            df = df[~df[key].str.lower().eq("grand total")]
-            if is_category:
-                df = df[~df[key].str.lower().eq("others")]
-            result["MTD"] = df.set_index(key)[val]
+    key = next((c for c in df.columns if "Product" in c), None)
+    val = next((c for c in df.columns if "vs LY" in c), None)
+    if key and val:
+        df = df[~df[key].str.lower().eq("grand total")]
+        if is_category:
+            df = df[~df[key].str.lower().eq("others")]
+        result["MTD"] = df.set_index(key)[val]
 
     # %Gr L3M
     df = safe_read_excel(latest, "Sheet 3", skiprows=1)
-    if not df.empty:
-        key = next((c for c in df.columns if "Product" in c), None)
-        val = next((c for c in df.columns if "vs L3M" in c), None)
-        if key and val:
-            df[key] = df[key].astype(str)
-            df = df[~df[key].str.lower().eq("grand total")]
-            if is_category:
-                df = df[~df[key].str.lower().eq("others")]
-            result["%Gr L3M MTD"] = df.set_index(key)[val]
+    key = next((c for c in df.columns if "Product" in c), None)
+    val = next((c for c in df.columns if "vs L3M" in c), None)
+    if key and val:
+        df = df[~df[key].str.lower().eq("grand total")]
+        if is_category:
+            df = df[~df[key].str.lower().eq("others")]
+        result["%Gr L3M MTD"] = df.set_index(key)[val]
 
     return pd.DataFrame(result).fillna(0)
 
 # =========================
-# Proses hanya jika ada file di-upload
-if any(format_files.values()) or any(category_files.values()):
-    df_format = process_files(format_files, is_category=False)
-    df_category = process_files(category_files, is_category=True)
-else:
+# Load Data
+# =========================
+df_format = process_files(format_files, is_category=False)
+df_category = process_files(category_files, is_category=True)
+
+if df_format.empty and df_category.empty:
     st.info("⬅️ Upload minimal satu file (Format atau Kategori)")
     st.stop()
 
 # =========================
-# Debug: cek sheet & kolom
-st.write("Debug: Format DataFrame")
-st.write(df_format)
-st.write("Debug: Kategori DataFrame")
-st.write(df_category)
-
-# =========================
 # Filter Selection
-format_options = df_format.index.astype(str).tolist() if not df_format.empty else ["-Data Kosong-"]
-category_options = df_category.index.astype(str).tolist() if not df_category.empty else ["-Data Kosong-"]
+# =========================
+format_options = df_format.index.tolist() if not df_format.empty else []
+category_options = df_category.index.tolist() if not df_category.empty else []
 
 selected_format = st.sidebar.multiselect("Filter Format", format_options)
 selected_category = st.sidebar.multiselect("Filter Kategori", category_options)
-
-if (selected_format == ["-Data Kosong-"]) or (selected_category == ["-Data Kosong-"]):
-    st.warning("⚠️ Data kosong, silakan cek file yang di-upload dan sheet/kolomnya")
-    st.stop()
 
 if not selected_format and not selected_category:
     st.info("⬅️ Silakan pilih minimal satu filter (Format atau Kategori) untuk menampilkan data")
     st.stop()
 
 # =========================
-# Siapkan Data Format (tambahkan "Others" jika perlu)
+# Format (Others)
+# =========================
 df_fmt_final = pd.DataFrame()
 if selected_format and not df_format.empty:
     selected_df = df_format.loc[selected_format]
@@ -160,13 +134,15 @@ if selected_format and not df_format.empty:
         df_fmt_final = selected_df
 
 # =========================
-# Siapkan Data Kategori
+# Kategori
+# =========================
 df_cat_final = pd.DataFrame()
 if selected_category and not df_category.empty:
     df_cat_final = df_category.loc[selected_category]
 
 # =========================
 # Merge Display
+# =========================
 display_frames = []
 if not df_cat_final.empty:
     df_cat_display = df_cat_final.copy()
@@ -181,6 +157,7 @@ df_final_display = pd.concat(display_frames)
 
 # =========================
 # MultiIndex Columns
+# =========================
 columns = pd.MultiIndex.from_tuples([
     ("Sell In YTD", "Cont"),
     ("Growth", "YTD Q1"),
@@ -197,10 +174,12 @@ for c in df_final_display.columns:
     elif c in df_display.columns.get_level_values(1):
         df_display[("Growth",c)] = df_final_display[c]/100
 
+# Format ke persen 2 desimal
 df_display = df_display.applymap(lambda x: f"{x*100:.2f}%" if pd.notnull(x) else "0.00%")
 
 # =========================
-# Cut-off tanggal Bahasa Indonesia
+# Tanggal Cut Off Manual Bahasa Indonesia
+# =========================
 bulan_id = {
     1: "Januari", 2: "Februari", 3: "Maret", 4: "April",
     5: "Mei", 6: "Juni", 7: "Juli", 8: "Agustus",
@@ -212,7 +191,8 @@ st.markdown(f"**Cut Off: {cut_off_str}**")
 st.dataframe(df_display, use_container_width=True)
 
 # =========================
-# Download Excel
+# Export Excel
+# =========================
 def to_excel(df, cut_off_str):
     output = BytesIO()
     wb = xlsxwriter.Workbook(output, {'nan_inf_to_errors': True})
@@ -223,7 +203,10 @@ def to_excel(df, cut_off_str):
     percent_fmt = wb.add_format({'align': 'center','border':1,'num_format':'0.00%'})
     cut_off_fmt = wb.add_format({'bold': True, 'align':'left'})
 
+    # Baris Cut Off
     ws.write(0, 0, f"Cut Off: {cut_off_str}", cut_off_fmt)
+
+    # Header
     ws.write(1, 0, "Format/Kategori", header)
     ws.write(1, 1, "Sell In YTD", header)
     ws.merge_range(1,2,1,7,"Growth", header)
