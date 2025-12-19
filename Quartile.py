@@ -3,17 +3,10 @@ import pandas as pd
 import numpy as np
 from io import BytesIO
 import xlsxwriter
-import locale
 from datetime import datetime
 
 st.set_page_config(layout="wide")
 st.title("Quartile Report Emina")
-
-# =========================
-# Set locale Indonesia untuk bulan
-# =========================
-locale.setlocale(locale.LC_TIME, "id_ID.UTF-8")  # Linux/Mac
-# Windows: locale.setlocale(locale.LC_TIME, "Indonesian_indonesia.1252")
 
 # =========================
 # Sidebar: Upload + Cut Off
@@ -89,7 +82,7 @@ def process_files(files, is_category=False):
         df = df[~df[key].str.lower().eq("grand total")]
         if is_category:
             df = df[~df[key].str.lower().eq("others")]
-        result["MTD"] = df.set_index(key)[val]  # hapus "Des"
+        result["MTD"] = df.set_index(key)[val]
 
     # %Gr L3M
     df = safe_read_excel(latest, "Sheet 3", skiprows=1)
@@ -99,7 +92,7 @@ def process_files(files, is_category=False):
         df = df[~df[key].str.lower().eq("grand total")]
         if is_category:
             df = df[~df[key].str.lower().eq("others")]
-        result["%Gr L3M MTD"] = df.set_index(key)[val]  # hapus "Des"
+        result["%Gr L3M MTD"] = df.set_index(key)[val]
 
     return pd.DataFrame(result).fillna(0)
 
@@ -129,29 +122,26 @@ if not selected_format and not selected_category:
 # =========================
 # Format (Others)
 # =========================
-df_fmt = df_format.copy()
-if selected_format:
-    selected_df = df_fmt.loc[selected_format]
-    others_df = df_fmt.drop(selected_format, errors="ignore")
+df_fmt_final = pd.DataFrame()
+if selected_format and not df_format.empty:
+    selected_df = df_format.loc[selected_format]
+    others_df = df_format.drop(selected_format, errors="ignore")
     if not others_df.empty:
         others = others_df.sum().to_frame().T
         others.index = ["Others"]
         df_fmt_final = pd.concat([selected_df, others])
     else:
         df_fmt_final = selected_df
-else:
-    df_fmt_final = pd.DataFrame()
 
 # =========================
-# Kategori (No Others)
+# Kategori
 # =========================
-if selected_category:
+df_cat_final = pd.DataFrame()
+if selected_category and not df_category.empty:
     df_cat_final = df_category.loc[selected_category]
-else:
-    df_cat_final = pd.DataFrame()
 
 # =========================
-# Merge Display (Kategori always top)
+# Merge Display
 # =========================
 display_frames = []
 if not df_cat_final.empty:
@@ -166,7 +156,7 @@ if not df_fmt_final.empty:
 df_final_display = pd.concat(display_frames)
 
 # =========================
-# MultiIndex Columns (hapus "Des")
+# MultiIndex Columns
 # =========================
 columns = pd.MultiIndex.from_tuples([
     ("Sell In YTD", "Cont"),
@@ -188,9 +178,15 @@ for c in df_final_display.columns:
 df_display = df_display.applymap(lambda x: f"{x*100:.2f}%" if pd.notnull(x) else "0.00%")
 
 # =========================
-# Display Table Streamlit (dengan Cut Off format Indonesia)
+# Tanggal Cut Off Manual Bahasa Indonesia
 # =========================
-cut_off_str = cut_off_date.strftime("%d %B %Y")
+bulan_id = {
+    1: "Januari", 2: "Februari", 3: "Maret", 4: "April",
+    5: "Mei", 6: "Juni", 7: "Juli", 8: "Agustus",
+    9: "September", 10: "Oktober", 11: "November", 12: "Desember"
+}
+cut_off_str = f"{cut_off_date.day} {bulan_id[cut_off_date.month]} {cut_off_date.year}"
+
 st.markdown(f"**Cut Off: {cut_off_str}**")
 st.dataframe(df_display, use_container_width=True)
 
@@ -240,4 +236,3 @@ st.download_button(
     "Quartile_Report.xlsx",
     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
 )
-
