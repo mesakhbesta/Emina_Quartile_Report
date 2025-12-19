@@ -11,7 +11,7 @@ st.title("Quartile Report Emina")
 # =========================
 # Sidebar: Upload + Cut Off
 # =========================
-cut_off_date = st.sidebar.date_input("📅 Tanggal Cut Off")
+cut_off_date = st.sidebar.date_input("📅 Tanggal Cut Off", value=datetime.today())
 
 with st.sidebar.expander("📤 Upload FORMAT", expanded=True):
     format_files = {
@@ -33,6 +33,7 @@ with st.sidebar.expander("📤 Upload KATEGORI", expanded=True):
 # Helper Functions
 # =========================
 def safe_read_excel(file, sheet, skiprows=0):
+    """Baca sheet Excel aman, return DataFrame kosong jika sheet tidak ada"""
     try:
         xls = pd.ExcelFile(file)
         if sheet not in xls.sheet_names:
@@ -44,12 +45,14 @@ def safe_read_excel(file, sheet, skiprows=0):
         return pd.DataFrame()
 
 def pick_highest_q(files):
+    """Ambil file Q tertinggi yang ada (Q4 > Q3 > Q2 > Q1)"""
     for q in ["Q4", "Q3", "Q2", "Q1"]:
         if files.get(q):
             return files[q]
     return None
 
 def process_files(files, is_category=False):
+    """Proses file excel menjadi DataFrame sesuai kebutuhan"""
     if not any(files.values()):
         return pd.DataFrame()
 
@@ -107,12 +110,12 @@ def process_files(files, is_category=False):
     return pd.DataFrame(result).fillna(0)
 
 # =========================
-# Load Data (Hanya jika ada file)
+# Proses hanya jika ada file di-upload
 # =========================
-df_format = process_files(format_files, is_category=False)
-df_category = process_files(category_files, is_category=True)
-
-if df_format.empty and df_category.empty:
+if any(format_files.values()) or any(category_files.values()):
+    df_format = process_files(format_files, is_category=False)
+    df_category = process_files(category_files, is_category=True)
+else:
     st.info("⬅️ Upload minimal satu file (Format atau Kategori)")
     st.stop()
 
@@ -130,7 +133,7 @@ if not selected_format and not selected_category:
     st.stop()
 
 # =========================
-# Format (Others)
+# Siapkan Data Format (tambahkan "Others" jika perlu)
 # =========================
 df_fmt_final = pd.DataFrame()
 if selected_format and not df_format.empty:
@@ -144,14 +147,14 @@ if selected_format and not df_format.empty:
         df_fmt_final = selected_df
 
 # =========================
-# Kategori
+# Siapkan Data Kategori
 # =========================
 df_cat_final = pd.DataFrame()
 if selected_category and not df_category.empty:
     df_cat_final = df_category.loc[selected_category]
 
 # =========================
-# Merge Display
+# Merge Display (Kategori di atas, Format di bawah)
 # =========================
 display_frames = []
 if not df_cat_final.empty:
@@ -187,7 +190,7 @@ for c in df_final_display.columns:
 df_display = df_display.applymap(lambda x: f"{x*100:.2f}%" if pd.notnull(x) else "0.00%")
 
 # =========================
-# Cut-off Tanggal Bahasa Indonesia
+# Cut-off tanggal Bahasa Indonesia
 # =========================
 bulan_id = {
     1: "Januari", 2: "Februari", 3: "Maret", 4: "April",
@@ -200,7 +203,7 @@ st.markdown(f"**Cut Off: {cut_off_str}**")
 st.dataframe(df_display, use_container_width=True)
 
 # =========================
-# Export Excel
+# Download Excel
 # =========================
 def to_excel(df, cut_off_str):
     output = BytesIO()
