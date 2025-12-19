@@ -120,13 +120,23 @@ else:
     st.stop()
 
 # =========================
-# Filter Selection
+# Debug: cek apakah dataframe terisi
+st.write("Debug: Format DataFrame")
+st.write(df_format)
+st.write("Debug: Kategori DataFrame")
+st.write(df_category)
+
 # =========================
-format_options = df_format.index.tolist() if not df_format.empty else []
-category_options = df_category.index.tolist() if not df_category.empty else []
+# Filter Selection (gunakan fallback jika kosong)
+format_options = df_format.index.astype(str).tolist() if not df_format.empty else ["-Data Kosong-"]
+category_options = df_category.index.astype(str).tolist() if not df_category.empty else ["-Data Kosong-"]
 
 selected_format = st.sidebar.multiselect("Filter Format", format_options)
 selected_category = st.sidebar.multiselect("Filter Kategori", category_options)
+
+if (selected_format == ["-Data Kosong-"]) or (selected_category == ["-Data Kosong-"]):
+    st.warning("⚠️ Data kosong, silakan cek file yang di-upload dan sheet/kolomnya")
+    st.stop()
 
 if not selected_format and not selected_category:
     st.info("⬅️ Silakan pilih minimal satu filter (Format atau Kategori) untuk menampilkan data")
@@ -134,7 +144,6 @@ if not selected_format and not selected_category:
 
 # =========================
 # Siapkan Data Format (tambahkan "Others" jika perlu)
-# =========================
 df_fmt_final = pd.DataFrame()
 if selected_format and not df_format.empty:
     selected_df = df_format.loc[selected_format]
@@ -148,14 +157,12 @@ if selected_format and not df_format.empty:
 
 # =========================
 # Siapkan Data Kategori
-# =========================
 df_cat_final = pd.DataFrame()
 if selected_category and not df_category.empty:
     df_cat_final = df_category.loc[selected_category]
 
 # =========================
 # Merge Display (Kategori di atas, Format di bawah)
-# =========================
 display_frames = []
 if not df_cat_final.empty:
     df_cat_display = df_cat_final.copy()
@@ -170,7 +177,6 @@ df_final_display = pd.concat(display_frames)
 
 # =========================
 # MultiIndex Columns
-# =========================
 columns = pd.MultiIndex.from_tuples([
     ("Sell In YTD", "Cont"),
     ("Growth", "YTD Q1"),
@@ -191,7 +197,6 @@ df_display = df_display.applymap(lambda x: f"{x*100:.2f}%" if pd.notnull(x) else
 
 # =========================
 # Cut-off tanggal Bahasa Indonesia
-# =========================
 bulan_id = {
     1: "Januari", 2: "Februari", 3: "Maret", 4: "April",
     5: "Mei", 6: "Juni", 7: "Juli", 8: "Agustus",
@@ -204,7 +209,6 @@ st.dataframe(df_display, use_container_width=True)
 
 # =========================
 # Download Excel
-# =========================
 def to_excel(df, cut_off_str):
     output = BytesIO()
     wb = xlsxwriter.Workbook(output, {'nan_inf_to_errors': True})
