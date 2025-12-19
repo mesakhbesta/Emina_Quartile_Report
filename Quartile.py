@@ -7,7 +7,7 @@ import locale
 from datetime import datetime
 
 st.set_page_config(layout="wide")
-st.title("Sell In YTD & Growth – Emina (Final)")
+st.title("Quartile Report Emina")
 
 # =========================
 # Set locale Indonesia untuk bulan
@@ -240,3 +240,4 @@ st.download_button(
     "Quartile_Report.xlsx",
     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
 )
+
