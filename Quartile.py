@@ -27,7 +27,7 @@ def parse_percent(val):
         if val is None or (isinstance(val, str) and val.strip() == ""):
             return 0.0
         if isinstance(val, str):
-            return float(val.replace("%","").replace(",","."))  # angka float
+            return float(val.replace("%","").replace(",","."))
         return float(val)
     except:
         return 0.0
@@ -41,7 +41,6 @@ def parse_number(val):
         return 0
 
 def load_metrics(file):
-    # Sheet lokasi sama seperti code awal
     cont = pd.read_excel(file, sheet_name="Sheet 18", usecols=["Product P","% of Total Current DO TP2 along Product P, Product P Hidden"])
     value_mtd = pd.read_excel(file, sheet_name="Sheet 1", usecols=["Product P","Current DO"])
     value_ytd = pd.read_excel(file, sheet_name="Sheet 1", usecols=["Product P","Current DO TP2"])
@@ -51,7 +50,6 @@ def load_metrics(file):
     ach_mtd = pd.read_excel(file, sheet_name="Sheet 13", usecols=["Product P","Current Achievement"])
     ach_ytd = pd.read_excel(file, sheet_name="Sheet 14", usecols=["Product P","Current Achievement TP2"])
 
-    # Merge all metric into single dataframe
     df = cont.rename(columns={"% of Total Current DO TP2 along Product P, Product P Hidden":"Cont YTD"})
     df = df.merge(value_mtd.rename(columns={"Current DO":"Value MTD"}), on="Product P", how="left")
     df = df.merge(value_ytd.rename(columns={"Current DO TP2":"Value YTD"}), on="Product P", how="left")
@@ -124,6 +122,7 @@ rows.append(fmt_df)
 # 3️⃣ Others = sum metric dari format yang **tidak dipilih**
 others_df = df_format[~df_format["Product P"].isin(st.session_state["format_select"])]
 if not others_df.empty:
+    # SUM metric persentase **langsung dalam angka %**
     others_sum = pd.DataFrame({
         "Product P":["Others"],
         "Cont YTD":[others_df["Cont YTD"].sum()],
@@ -137,7 +136,6 @@ if not others_df.empty:
     })
     rows.append(others_sum)
 
-# Concatenate all rows
 display_df = pd.concat(rows, ignore_index=True)
 
 # ===============================
