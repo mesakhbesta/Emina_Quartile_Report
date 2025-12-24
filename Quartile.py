@@ -22,17 +22,24 @@ if not format_file or not category_file:
 # ===============================
 # HELPER FUNCTIONS
 # ===============================
-def parse_percent(val):
-    if pd.isna(val):
-        return None
-    if isinstance(val, str):
-        return round(float(val.replace("%","").replace(",", ".")), 1)
-    return round(float(val)*100, 1)
-
 def parse_number(val):
-    if pd.isna(val):
+    try:
+        if val is None or (isinstance(val, str) and val.strip() == ""):
+            return None
+        return round(float(val), 0)
+    except:
+        return None  # skip nilai yang tidak bisa di-convert
+
+def parse_percent(val):
+    try:
+        if val is None or (isinstance(val, str) and val.strip() == ""):
+            return None
+        if isinstance(val, str):
+            return round(float(val.replace("%","").replace(",", ".")), 1)
+        return round(float(val)*100, 1)
+    except:
         return None
-    return round(float(val),0)
+
 
 def load_metrics(file):
     # Ambil sheet pertama atau sheet spesifik sesuai kebutuhan
@@ -173,3 +180,4 @@ st.download_button(
     "Metrics_Report.xlsx",
     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
 )
+
