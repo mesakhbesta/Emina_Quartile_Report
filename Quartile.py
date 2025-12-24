@@ -20,10 +20,10 @@ if not format_file or not category_file:
 # HELPER FUNCTIONS
 # ===============================
 def parse_percent_str(val):
-    """Parse string persentase dari Excel langsung"""
+    """Parse string persentase dari Excel langsung, misal '-12,2%' -> -12.2"""
     if pd.isna(val) or str(val).strip() == "":
         return 0.0
-    val = str(val).replace("%","").replace(",",".")
+    val = str(val).replace("%", "").replace(",", ".")
     try:
         return float(val)
     except:
@@ -125,7 +125,8 @@ for k in st.session_state["category_select"]:
     ])
 
 # Format yang dipilih
-for f in st.session_state["format_select"]:
+selected_fmts = st.session_state["format_select"]
+for f in selected_fmts:
     rows.append([
         f,
         cont_map_fmt.get(f,0),
@@ -139,17 +140,17 @@ for f in st.session_state["format_select"]:
     ])
 
 # Others = sum dari yang tidak dipilih
-others_keys = [k for k in cont_map_fmt.keys() if k not in st.session_state["format_select"]]
+others_keys = [k for k in cont_map_fmt.keys() if k not in selected_fmts]
 if others_keys:
     summed = ["Others"]
-    summed.append(sum([cont_map_fmt.get(k,0) for k in others_keys]))
-    summed.append(sum([value_mtd_fmt.get(k,0) for k in others_keys]))
-    summed.append(sum([value_ytd_fmt.get(k,0) for k in others_keys]))
-    summed.append(sum([growth_mtd_fmt.get(k,0) for k in others_keys]))
-    summed.append(sum([growth_l3m_fmt.get(k,0) for k in others_keys]))
-    summed.append(sum([growth_ytd_fmt.get(k,0) for k in others_keys]))
-    summed.append(sum([ach_mtd_fmt.get(k,0) for k in others_keys]))
-    summed.append(sum([ach_ytd_fmt.get(k,0) for k in others_keys]))
+    summed.append(sum([cont_map_fmt[k] for k in others_keys]))
+    summed.append(sum([value_mtd_fmt[k] for k in others_keys]))
+    summed.append(sum([value_ytd_fmt[k] for k in others_keys]))
+    summed.append(sum([growth_mtd_fmt[k] for k in others_keys]))
+    summed.append(sum([growth_l3m_fmt[k] for k in others_keys]))
+    summed.append(sum([growth_ytd_fmt[k] for k in others_keys]))
+    summed.append(sum([ach_mtd_fmt[k] for k in others_keys]))
+    summed.append(sum([ach_ytd_fmt[k] for k in others_keys]))
     rows.append(summed)
 
 # ===============================
@@ -205,10 +206,7 @@ with pd.ExcelWriter(output, engine="xlsxwriter") as writer:
             if pd.isna(val) or val=="":
                 ws.write_blank(r_idx, c_idx, None, num_fmt)
             else:
-                try:
-                    val_num = float(str(val).replace("%",""))
-                except:
-                    val_num = val
+                val_num = float(str(val).replace("%",""))
                 if display_df.columns[c_idx] in pct_cols:
                     ws.write_number(r_idx, c_idx, val_num/100, pct_g if val_num>=0 else pct_r)
                 else:
