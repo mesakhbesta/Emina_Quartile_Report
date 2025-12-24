@@ -19,8 +19,8 @@ if not format_file or not category_file:
 # ===============================
 # HELPER FUNCTIONS
 # ===============================
-def parse_percent_to_float(val):
-    """Hapus % dan ubah ke float"""
+def parse_percent_str_to_float(val):
+    """Parse string persentase dari Excel langsung jadi float"""
     if pd.isna(val) or str(val).strip() == "":
         return 0.0
     val = str(val).replace("%","").replace(",",".")
@@ -51,26 +51,26 @@ def load_map(sheet, key_col, val_col, file, skip=0, parser=None):
 # ===============================
 # LOAD FORMAT METRICS
 # ===============================
-cont_map_fmt = load_map("Sheet 18", "Product P", "% of Total Current DO TP2 along Product P, Product P Hidden", file=format_file, parser=parse_percent_to_float)
+cont_map_fmt = load_map("Sheet 18", "Product P", "% of Total Current DO TP2 along Product P, Product P Hidden", file=format_file, parser=parse_percent_str_to_float)
 value_mtd_fmt = load_map("Sheet 1", "Product P", "Current DO", file=format_file, parser=parse_number)
 value_ytd_fmt = load_map("Sheet 1", "Product P", "Current DO TP2", file=format_file, parser=parse_number)
-growth_mtd_fmt = load_map("Sheet 4", "Product P", "vs LY", skip=1, file=format_file, parser=parse_percent_to_float)
-growth_l3m_fmt = load_map("Sheet 3", "Product P", "vs L3M", skip=1, file=format_file, parser=parse_percent_to_float)
-growth_ytd_fmt = load_map("Sheet 5", "Product P", "vs LY", skip=1, file=format_file, parser=parse_percent_to_float)
-ach_mtd_fmt = load_map("Sheet 13", "Product P", "Current Achievement", file=format_file, parser=parse_percent_to_float)
-ach_ytd_fmt = load_map("Sheet 14", "Product P", "Current Achievement TP2", file=format_file, parser=parse_percent_to_float)
+growth_mtd_fmt = load_map("Sheet 4", "Product P", "vs LY", skip=1, file=format_file, parser=parse_percent_str_to_float)
+growth_l3m_fmt = load_map("Sheet 3", "Product P", "vs L3M", skip=1, file=format_file, parser=parse_percent_str_to_float)
+growth_ytd_fmt = load_map("Sheet 5", "Product P", "vs LY", skip=1, file=format_file, parser=parse_percent_str_to_float)
+ach_mtd_fmt = load_map("Sheet 13", "Product P", "Current Achievement", file=format_file, parser=parse_percent_str_to_float)
+ach_ytd_fmt = load_map("Sheet 14", "Product P", "Current Achievement TP2", file=format_file, parser=parse_percent_str_to_float)
 
 # ===============================
 # LOAD CATEGORY METRICS
 # ===============================
-cont_map_cat = load_map("Sheet 18", "Product P", "% of Total Current DO TP2 along Product P, Product P Hidden", file=category_file, parser=parse_percent_to_float)
+cont_map_cat = load_map("Sheet 18", "Product P", "% of Total Current DO TP2 along Product P, Product P Hidden", file=category_file, parser=parse_percent_str_to_float)
 value_mtd_cat = load_map("Sheet 1", "Product P", "Current DO", file=category_file, parser=parse_number)
 value_ytd_cat = load_map("Sheet 1", "Product P", "Current DO TP2", file=category_file, parser=parse_number)
-growth_mtd_cat = load_map("Sheet 4", "Product P", "vs LY", skip=1, file=category_file, parser=parse_percent_to_float)
-growth_l3m_cat = load_map("Sheet 3", "Product P", "vs L3M", skip=1, file=category_file, parser=parse_percent_to_float)
-growth_ytd_cat = load_map("Sheet 5", "Product P", "vs LY", skip=1, file=category_file, parser=parse_percent_to_float)
-ach_mtd_cat = load_map("Sheet 13", "Product P", "Current Achievement", file=category_file, parser=parse_percent_to_float)
-ach_ytd_cat = load_map("Sheet 14", "Product P", "Current Achievement TP2", file=category_file, parser=parse_percent_to_float)
+growth_mtd_cat = load_map("Sheet 4", "Product P", "vs LY", skip=1, file=category_file, parser=parse_percent_str_to_float)
+growth_l3m_cat = load_map("Sheet 3", "Product P", "vs L3M", skip=1, file=category_file, parser=parse_percent_str_to_float)
+growth_ytd_cat = load_map("Sheet 5", "Product P", "vs LY", skip=1, file=category_file, parser=parse_percent_str_to_float)
+ach_mtd_cat = load_map("Sheet 13", "Product P", "Current Achievement", file=category_file, parser=parse_percent_str_to_float)
+ach_ytd_cat = load_map("Sheet 14", "Product P", "Current Achievement TP2", file=category_file, parser=parse_percent_str_to_float)
 
 # ===============================
 # FILTERS
@@ -125,8 +125,7 @@ for k in st.session_state["category_select"]:
     ])
 
 # Format yang dipilih
-selected_fmts = st.session_state["format_select"]
-for f in selected_fmts:
+for f in st.session_state["format_select"]:
     rows.append([
         f,
         cont_map_fmt.get(f,0),
@@ -140,17 +139,17 @@ for f in selected_fmts:
     ])
 
 # Others = sum dari yang tidak dipilih
-others_keys = [k for k in cont_map_fmt.keys() if k not in selected_fmts]
+others_keys = [k for k in cont_map_fmt.keys() if k not in st.session_state["format_select"]]
 if others_keys:
     summed = ["Others"]
-    summed.append(sum([cont_map_fmt[k] for k in others_keys]))
-    summed.append(sum([value_mtd_fmt[k] for k in others_keys]))
-    summed.append(sum([value_ytd_fmt[k] for k in others_keys]))
-    summed.append(sum([growth_mtd_fmt[k] for k in others_keys]))
-    summed.append(sum([growth_l3m_fmt[k] for k in others_keys]))
-    summed.append(sum([growth_ytd_fmt[k] for k in others_keys]))
-    summed.append(sum([ach_mtd_fmt[k] for k in others_keys]))
-    summed.append(sum([ach_ytd_fmt[k] for k in others_keys]))
+    summed.append(sum([cont_map_fmt.get(k,0) for k in others_keys]))
+    summed.append(sum([value_mtd_fmt.get(k,0) for k in others_keys]))
+    summed.append(sum([value_ytd_fmt.get(k,0) for k in others_keys]))
+    summed.append(sum([growth_mtd_fmt.get(k,0) for k in others_keys]))
+    summed.append(sum([growth_l3m_fmt.get(k,0) for k in others_keys]))
+    summed.append(sum([growth_ytd_fmt.get(k,0) for k in others_keys]))
+    summed.append(sum([ach_mtd_fmt.get(k,0) for k in others_keys]))
+    summed.append(sum([ach_ytd_fmt.get(k,0) for k in others_keys]))
     rows.append(summed)
 
 # ===============================
@@ -168,7 +167,7 @@ display_df = pd.DataFrame(rows, columns=[
     "Ach YTD"
 ])
 
-# Format persentase untuk tampilan
+# Persentase formatting terakhir
 pct_cols = ["Cont YTD","Growth MTD","%Gr L3M","Growth YTD","Ach MTD","Ach YTD"]
 for col in pct_cols:
     display_df[col] = display_df[col].apply(lambda x: f"{x:.1f}%" if pd.notna(x) else "")
@@ -207,7 +206,10 @@ with pd.ExcelWriter(output, engine="xlsxwriter") as writer:
             if pd.isna(val) or val=="":
                 ws.write_blank(r_idx, c_idx, None, num_fmt)
             else:
-                val_num = float(str(val).replace("%",""))
+                try:
+                    val_num = float(str(val).replace("%",""))
+                except:
+                    val_num = val
                 if display_df.columns[c_idx] in pct_cols:
                     ws.write_number(r_idx, c_idx, val_num/100, pct_g if val_num>=0 else pct_r)
                 else:
