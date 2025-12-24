@@ -25,27 +25,27 @@ if not format_file or not category_file:
 def parse_percent(val):
     try:
         if val is None or (isinstance(val, str) and val.strip() == ""):
-            return None
+            return 0
         if isinstance(val, str):
             return round(float(val.replace("%","").replace(",", ".")), 1)
         return round(float(val)*100, 1)
     except:
-        return None
+        return 0
 
 def parse_number(val):
     try:
         if val is None or (isinstance(val, str) and val.strip() == ""):
-            return None
+            return 0
         return round(float(val),0)
     except:
-        return None
+        return 0
 
 def load_map(sheet, key_col, val_col, file, skip=0, parser=None):
     tmp = pd.read_excel(file, sheet_name=sheet, skiprows=skip)
     tmp = tmp.dropna(subset=[key_col])
     result = {}
     for _, r in tmp.iterrows():
-        v = r[val_col] if val_col in r else None
+        v = r[val_col] if val_col in r else 0
         if parser:
             v = parser(v)
         result[r[key_col]] = v
@@ -117,43 +117,42 @@ rows = []
 for k in st.session_state["category_select"]:
     rows.append([
         k,
-        cont_map_cat.get(k),
-        value_mtd_cat.get(k),
-        value_ytd_cat.get(k),
-        growth_mtd_cat.get(k),
-        growth_l3m_cat.get(k),
-        growth_ytd_cat.get(k),
-        ach_mtd_cat.get(k),
-        ach_ytd_cat.get(k)
+        cont_map_cat.get(k,0),
+        value_mtd_cat.get(k,0),
+        value_ytd_cat.get(k,0),
+        growth_mtd_cat.get(k,0),
+        growth_l3m_cat.get(k,0),
+        growth_ytd_cat.get(k,0),
+        ach_mtd_cat.get(k,0),
+        ach_ytd_cat.get(k,0)
     ])
 
 # 2️⃣ Format yang dipilih
 for f in st.session_state["format_select"]:
     rows.append([
         f,
-        cont_map_fmt.get(f),
-        value_mtd_fmt.get(f),
-        value_ytd_fmt.get(f),
-        growth_mtd_fmt.get(f),
-        growth_l3m_fmt.get(f),
-        growth_ytd_fmt.get(f),
-        ach_mtd_fmt.get(f),
-        ach_ytd_fmt.get(f)
+        cont_map_fmt.get(f,0),
+        value_mtd_fmt.get(f,0),
+        value_ytd_fmt.get(f,0),
+        growth_mtd_fmt.get(f,0),
+        growth_l3m_fmt.get(f,0),
+        growth_ytd_fmt.get(f,0),
+        ach_mtd_fmt.get(f,0),
+        ach_ytd_fmt.get(f,0)
     ])
 
-# 3️⃣ Others (Format yang tidak dipilih)
+# 3️⃣ Others: sum dari semua unit format yang tidak dipilih
 others_keys = [k for k in cont_map_fmt.keys() if k not in st.session_state["format_select"]]
 if others_keys:
     summed = ["Others"]
-    # Sum metric, pastikan None = 0
-    summed.append(sum([cont_map_fmt.get(k,0) or 0 for k in others_keys]))
-    summed.append(sum([value_mtd_fmt.get(k,0) or 0 for k in others_keys]))
-    summed.append(sum([value_ytd_fmt.get(k,0) or 0 for k in others_keys]))
-    summed.append(sum([growth_mtd_fmt.get(k,0) or 0 for k in others_keys]))
-    summed.append(sum([growth_l3m_fmt.get(k,0) or 0 for k in others_keys]))
-    summed.append(sum([growth_ytd_fmt.get(k,0) or 0 for k in others_keys]))
-    summed.append(sum([ach_mtd_fmt.get(k,0) or 0 for k in others_keys]))
-    summed.append(sum([ach_ytd_fmt.get(k,0) or 0 for k in others_keys]))
+    summed.append(sum([cont_map_fmt.get(k,0) for k in others_keys]))
+    summed.append(sum([value_mtd_fmt.get(k,0) for k in others_keys]))
+    summed.append(sum([value_ytd_fmt.get(k,0) for k in others_keys]))
+    summed.append(sum([growth_mtd_fmt.get(k,0) for k in others_keys]))
+    summed.append(sum([growth_l3m_fmt.get(k,0) for k in others_keys]))
+    summed.append(sum([growth_ytd_fmt.get(k,0) for k in others_keys]))
+    summed.append(sum([ach_mtd_fmt.get(k,0) for k in others_keys]))
+    summed.append(sum([ach_ytd_fmt.get(k,0) for k in others_keys]))
     rows.append(summed)
 
 # ===============================
