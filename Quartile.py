@@ -25,86 +25,86 @@ if not format_file or not category_file:
 def parse_percent(val):
     try:
         if val is None or (isinstance(val, str) and val.strip() == ""):
-            return 0
+            return 0.0
         if isinstance(val, str):
-            return round(float(val.replace("%","").replace(",", ".")), 1)
-        return round(float(val)*100, 1)
+            return float(val.replace("%","").replace(",","."))  # angka float
+        return float(val)
     except:
-        return 0
+        return 0.0
 
 def parse_number(val):
     try:
         if val is None or (isinstance(val, str) and val.strip() == ""):
             return 0
-        return round(float(val),0)
+        return float(val)
     except:
         return 0
 
-def load_map(sheet, key_col, val_col, file, skip=0, parser=None):
-    tmp = pd.read_excel(file, sheet_name=sheet, skiprows=skip)
-    tmp = tmp.dropna(subset=[key_col])
-    result = {}
-    for _, r in tmp.iterrows():
-        v = r[val_col] if val_col in r else 0
-        if parser:
-            v = parser(v)
-        result[r[key_col]] = v
-    return result
+def load_metrics(file):
+    # Sheet lokasi sama seperti code awal
+    cont = pd.read_excel(file, sheet_name="Sheet 18", usecols=["Product P","% of Total Current DO TP2 along Product P, Product P Hidden"])
+    value_mtd = pd.read_excel(file, sheet_name="Sheet 1", usecols=["Product P","Current DO"])
+    value_ytd = pd.read_excel(file, sheet_name="Sheet 1", usecols=["Product P","Current DO TP2"])
+    growth_mtd = pd.read_excel(file, sheet_name="Sheet 4", skiprows=1, usecols=["Product P","vs LY"])
+    growth_l3m = pd.read_excel(file, sheet_name="Sheet 3", skiprows=1, usecols=["Product P","vs L3M"])
+    growth_ytd = pd.read_excel(file, sheet_name="Sheet 5", skiprows=1, usecols=["Product P","vs LY"])
+    ach_mtd = pd.read_excel(file, sheet_name="Sheet 13", usecols=["Product P","Current Achievement"])
+    ach_ytd = pd.read_excel(file, sheet_name="Sheet 14", usecols=["Product P","Current Achievement TP2"])
+
+    # Merge all metric into single dataframe
+    df = cont.rename(columns={"% of Total Current DO TP2 along Product P, Product P Hidden":"Cont YTD"})
+    df = df.merge(value_mtd.rename(columns={"Current DO":"Value MTD"}), on="Product P", how="left")
+    df = df.merge(value_ytd.rename(columns={"Current DO TP2":"Value YTD"}), on="Product P", how="left")
+    df = df.merge(growth_mtd.rename(columns={"vs LY":"Growth MTD"}), on="Product P", how="left")
+    df = df.merge(growth_l3m.rename(columns={"vs L3M":"%Gr L3M"}), on="Product P", how="left")
+    df = df.merge(growth_ytd.rename(columns={"vs LY":"Growth YTD"}), on="Product P", how="left")
+    df = df.merge(ach_mtd.rename(columns={"Current Achievement":"Ach MTD"}), on="Product P", how="left")
+    df = df.merge(ach_ytd.rename(columns={"Current Achievement TP2":"Ach YTD"}), on="Product P", how="left")
+
+    # parse numbers
+    for col in ["Cont YTD","Growth MTD","%Gr L3M","Growth YTD","Ach MTD","Ach YTD"]:
+        df[col] = df[col].apply(parse_percent)
+    for col in ["Value MTD","Value YTD"]:
+        df[col] = df[col].apply(parse_number)
+
+    return df
 
 # ===============================
-# LOAD FORMAT METRICS
+# LOAD DATA
 # ===============================
-cont_map_fmt = load_map("Sheet 18", "Product P", "% of Total Current DO TP2 along Product P, Product P Hidden", file=format_file, parser=parse_percent)
-value_mtd_fmt = load_map("Sheet 1", "Product P", "Current DO", file=format_file, parser=parse_number)
-value_ytd_fmt = load_map("Sheet 1", "Product P", "Current DO TP2", file=format_file, parser=parse_number)
-growth_mtd_fmt = load_map("Sheet 4", "Product P", "vs LY", skip=1, file=format_file, parser=parse_percent)
-growth_l3m_fmt = load_map("Sheet 3", "Product P", "vs L3M", skip=1, file=format_file, parser=parse_percent)
-growth_ytd_fmt = load_map("Sheet 5", "Product P", "vs LY", skip=1, file=format_file, parser=parse_percent)
-ach_mtd_fmt = load_map("Sheet 13", "Product P", "Current Achievement", file=format_file, parser=parse_percent)
-ach_ytd_fmt = load_map("Sheet 14", "Product P", "Current Achievement TP2", file=format_file, parser=parse_percent)
-
-# ===============================
-# LOAD CATEGORY METRICS
-# ===============================
-cont_map_cat = load_map("Sheet 18", "Product P", "% of Total Current DO TP2 along Product P, Product P Hidden", file=category_file, parser=parse_percent)
-value_mtd_cat = load_map("Sheet 1", "Product P", "Current DO", file=category_file, parser=parse_number)
-value_ytd_cat = load_map("Sheet 1", "Product P", "Current DO TP2", file=category_file, parser=parse_number)
-growth_mtd_cat = load_map("Sheet 4", "Product P", "vs LY", skip=1, file=category_file, parser=parse_percent)
-growth_l3m_cat = load_map("Sheet 3", "Product P", "vs L3M", skip=1, file=category_file, parser=parse_percent)
-growth_ytd_cat = load_map("Sheet 5", "Product P", "vs LY", skip=1, file=category_file, parser=parse_percent)
-ach_mtd_cat = load_map("Sheet 13", "Product P", "Current Achievement", file=category_file, parser=parse_percent)
-ach_ytd_cat = load_map("Sheet 14", "Product P", "Current Achievement TP2", file=category_file, parser=parse_percent)
+df_format = load_metrics(format_file)
+df_category = load_metrics(category_file)
 
 # ===============================
 # FILTERS: SELECT ALL / DESELECT ALL RADIO
 # ===============================
 st.sidebar.subheader("Filter Kategori")
 if "category_select" not in st.session_state:
-    st.session_state["category_select"] = list(cont_map_cat.keys())
+    st.session_state["category_select"] = df_category["Product P"].tolist()
 
-cat_all_radio = st.sidebar.radio("Kategori Select All / Deselect All", ("Select All", "Deselect All"), key="cat_radio")
-if cat_all_radio == "Select All":
-    st.session_state["category_select"] = list(cont_map_cat.keys())
+cat_radio = st.sidebar.radio("Kategori Select All / Deselect All", ["Select All","Deselect All"], key="cat_radio")
+if cat_radio=="Select All":
+    st.session_state["category_select"] = df_category["Product P"].tolist()
 else:
     st.session_state["category_select"] = []
 
 st.session_state["category_select"] = st.sidebar.multiselect(
-    "Pilih Kategori", options=list(cont_map_cat.keys()),
+    "Pilih Kategori", options=df_category["Product P"].tolist(),
     default=st.session_state["category_select"]
 )
 
 st.sidebar.subheader("Filter Format")
 if "format_select" not in st.session_state:
-    st.session_state["format_select"] = list(cont_map_fmt.keys())
+    st.session_state["format_select"] = df_format["Product P"].tolist()
 
-fmt_all_radio = st.sidebar.radio("Format Select All / Deselect All", ("Select All", "Deselect All"), key="fmt_radio")
-if fmt_all_radio == "Select All":
-    st.session_state["format_select"] = list(cont_map_fmt.keys())
+fmt_radio = st.sidebar.radio("Format Select All / Deselect All", ["Select All","Deselect All"], key="fmt_radio")
+if fmt_radio=="Select All":
+    st.session_state["format_select"] = df_format["Product P"].tolist()
 else:
     st.session_state["format_select"] = []
 
 st.session_state["format_select"] = st.sidebar.multiselect(
-    "Pilih Format", options=list(cont_map_fmt.keys()),
+    "Pilih Format", options=df_format["Product P"].tolist(),
     default=st.session_state["format_select"]
 )
 
@@ -114,76 +114,46 @@ st.session_state["format_select"] = st.sidebar.multiselect(
 rows = []
 
 # 1️⃣ Kategori di atas
-for k in st.session_state["category_select"]:
-    rows.append([
-        k,
-        cont_map_cat.get(k,0),
-        value_mtd_cat.get(k,0),
-        value_ytd_cat.get(k,0),
-        growth_mtd_cat.get(k,0),
-        growth_l3m_cat.get(k,0),
-        growth_ytd_cat.get(k,0),
-        ach_mtd_cat.get(k,0),
-        ach_ytd_cat.get(k,0)
-    ])
+cat_df = df_category[df_category["Product P"].isin(st.session_state["category_select"])]
+rows.append(cat_df)
 
 # 2️⃣ Format yang dipilih
-for f in st.session_state["format_select"]:
-    rows.append([
-        f,
-        cont_map_fmt.get(f,0),
-        value_mtd_fmt.get(f,0),
-        value_ytd_fmt.get(f,0),
-        growth_mtd_fmt.get(f,0),
-        growth_l3m_fmt.get(f,0),
-        growth_ytd_fmt.get(f,0),
-        ach_mtd_fmt.get(f,0),
-        ach_ytd_fmt.get(f,0)
-    ])
+fmt_df = df_format[df_format["Product P"].isin(st.session_state["format_select"])]
+rows.append(fmt_df)
 
-# 3️⃣ Others: sum dari semua unit format yang tidak dipilih
-others_keys = [k for k in cont_map_fmt.keys() if k not in st.session_state["format_select"]]
-if others_keys:
-    summed = ["Others"]
-    summed.append(sum([cont_map_fmt.get(k,0) for k in others_keys]))
-    summed.append(sum([value_mtd_fmt.get(k,0) for k in others_keys]))
-    summed.append(sum([value_ytd_fmt.get(k,0) for k in others_keys]))
-    summed.append(sum([growth_mtd_fmt.get(k,0) for k in others_keys]))
-    summed.append(sum([growth_l3m_fmt.get(k,0) for k in others_keys]))
-    summed.append(sum([growth_ytd_fmt.get(k,0) for k in others_keys]))
-    summed.append(sum([ach_mtd_fmt.get(k,0) for k in others_keys]))
-    summed.append(sum([ach_ytd_fmt.get(k,0) for k in others_keys]))
-    rows.append(summed)
+# 3️⃣ Others = sum metric dari format yang **tidak dipilih**
+others_df = df_format[~df_format["Product P"].isin(st.session_state["format_select"])]
+if not others_df.empty:
+    others_sum = pd.DataFrame({
+        "Product P":["Others"],
+        "Cont YTD":[others_df["Cont YTD"].sum()],
+        "Value MTD":[others_df["Value MTD"].sum()],
+        "Value YTD":[others_df["Value YTD"].sum()],
+        "Growth MTD":[others_df["Growth MTD"].sum()],
+        "%Gr L3M":[others_df["%Gr L3M"].sum()],
+        "Growth YTD":[others_df["Growth YTD"].sum()],
+        "Ach MTD":[others_df["Ach MTD"].sum()],
+        "Ach YTD":[others_df["Ach YTD"].sum()]
+    })
+    rows.append(others_sum)
+
+# Concatenate all rows
+display_df = pd.concat(rows, ignore_index=True)
 
 # ===============================
-# CONVERT TO DATAFRAME & FORMAT PERCENTAGE
+# FORMAT PERCENTAGE FOR DISPLAY
 # ===============================
-display_df = pd.DataFrame(rows, columns=[
-    "Produk",
-    "Cont YTD",
-    "Value MTD",
-    "Value YTD",
-    "Growth MTD",
-    "%Gr L3M",
-    "Growth YTD",
-    "Ach MTD",
-    "Ach YTD"
-])
-
-# Format persentase untuk Streamlit
 pct_cols = ["Cont YTD","Growth MTD","%Gr L3M","Growth YTD","Ach MTD","Ach YTD"]
 
 def fmt_pct(x):
-    if pd.isna(x):
-        return ""
-    return f"{x:.1f}%"
+    return f"{x:.1f}%" if pd.notna(x) else ""
 
 for col in pct_cols:
     display_df[col] = display_df[col].apply(fmt_pct)
 
 # Styling biru untuk nama unit
 def highlight_name(row):
-    styles = [""] * len(row)
+    styles = [""]*len(row)
     styles[0] = "color: blue"
     return styles
 
