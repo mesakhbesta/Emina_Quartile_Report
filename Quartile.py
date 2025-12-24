@@ -82,7 +82,7 @@ st.sidebar.subheader("Filter Kategori")
 if "category_select" not in st.session_state:
     st.session_state["category_select"] = list(cont_map_cat.keys())
 
-cat_all_radio = st.sidebar.radio("Kategori Select All / Deselect All", ("Select All", "Deselect All"))
+cat_all_radio = st.sidebar.radio("Kategori Select All / Deselect All", ("Select All", "Deselect All"), key="cat_radio")
 if cat_all_radio == "Select All":
     st.session_state["category_select"] = list(cont_map_cat.keys())
 else:
@@ -145,6 +145,7 @@ for f in st.session_state["format_select"]:
 others_keys = [k for k in cont_map_fmt.keys() if k not in st.session_state["format_select"]]
 if others_keys:
     summed = ["Others"]
+    # Sum metric, pastikan None = 0
     summed.append(sum([cont_map_fmt.get(k,0) or 0 for k in others_keys]))
     summed.append(sum([value_mtd_fmt.get(k,0) or 0 for k in others_keys]))
     summed.append(sum([value_ytd_fmt.get(k,0) or 0 for k in others_keys]))
@@ -215,7 +216,6 @@ with pd.ExcelWriter(output, engine="xlsxwriter") as writer:
             if pd.isna(val) or val=="":
                 ws.write_blank(r_idx, c_idx, None, num_fmt)
             else:
-                # Remove % string for excel numbers
                 try:
                     val_num = float(str(val).replace("%",""))
                 except:
