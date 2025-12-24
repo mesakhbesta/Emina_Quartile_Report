@@ -54,7 +54,6 @@ def load_map(sheet, key_col, val_col, file, skip=0, parser=None):
 # ===============================
 # LOAD FORMAT METRICS
 # ===============================
-# Location & columns persis seperti code awal
 cont_map_fmt = load_map("Sheet 18", "Product P", "% of Total Current DO TP2 along Product P, Product P Hidden", file=format_file, parser=parse_percent)
 value_mtd_fmt = load_map("Sheet 1", "Product P", "Current DO", file=format_file, parser=parse_number)
 value_ytd_fmt = load_map("Sheet 1", "Product P", "Current DO TP2", file=format_file, parser=parse_number)
@@ -67,7 +66,6 @@ ach_ytd_fmt = load_map("Sheet 14", "Product P", "Current Achievement TP2", file=
 # ===============================
 # LOAD CATEGORY METRICS
 # ===============================
-# Location & columns persis seperti code awal
 cont_map_cat = load_map("Sheet 18", "Product P", "% of Total Current DO TP2 along Product P, Product P Hidden", file=category_file, parser=parse_percent)
 value_mtd_cat = load_map("Sheet 1", "Product P", "Current DO", file=category_file, parser=parse_number)
 value_ytd_cat = load_map("Sheet 1", "Product P", "Current DO TP2", file=category_file, parser=parse_number)
@@ -143,21 +141,19 @@ for f in st.session_state["format_select"]:
         ach_ytd_fmt.get(f)
     ])
 
-# 3️⃣ Others (Format saja)
-# 3️⃣ Others (Format saja)
+# 3️⃣ Others (Format saja yang tidak dipilih)
 others = [k for k in cont_map_fmt.keys() if k not in st.session_state["format_select"]]
 if others:
     summed = ["Others"]
-    metric_cols = [
-        value_mtd_fmt, value_ytd_fmt, growth_mtd_fmt, growth_l3m_fmt,
-        growth_ytd_fmt, ach_mtd_fmt, ach_ytd_fmt, cont_map_fmt
-    ]
-    # Hitung sum per metric, skip None
-    for metric in metric_cols:
-        val = sum([metric.get(k, 0) or 0 for k in others])
-        summed.append(val)
+    summed.append(sum([cont_map_fmt.get(k,0) or 0 for k in others]))
+    summed.append(sum([value_mtd_fmt.get(k,0) or 0 for k in others]))
+    summed.append(sum([value_ytd_fmt.get(k,0) or 0 for k in others]))
+    summed.append(sum([growth_mtd_fmt.get(k,0) or 0 for k in others]))
+    summed.append(sum([growth_l3m_fmt.get(k,0) or 0 for k in others]))
+    summed.append(sum([growth_ytd_fmt.get(k,0) or 0 for k in others]))
+    summed.append(sum([ach_mtd_fmt.get(k,0) or 0 for k in others]))
+    summed.append(sum([ach_ytd_fmt.get(k,0) or 0 for k in others]))
     rows.append(summed)
-
 
 # ===============================
 # DISPLAY DATAFRAME
@@ -226,4 +222,3 @@ st.download_button(
     "Metrics_Report.xlsx",
     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
 )
-
