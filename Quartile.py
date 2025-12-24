@@ -141,18 +141,18 @@ for f in st.session_state["format_select"]:
         ach_ytd_fmt.get(f)
     ])
 
-# 3️⃣ Others (Format saja yang tidak dipilih)
-others = [k for k in cont_map_fmt.keys() if k not in st.session_state["format_select"]]
-if others:
+# 3️⃣ Others (Format yang tidak dipilih)
+others_keys = [k for k in cont_map_fmt.keys() if k not in st.session_state["format_select"]]
+if others_keys:
     summed = ["Others"]
-    summed.append(sum([cont_map_fmt.get(k,0) or 0 for k in others]))
-    summed.append(sum([value_mtd_fmt.get(k,0) or 0 for k in others]))
-    summed.append(sum([value_ytd_fmt.get(k,0) or 0 for k in others]))
-    summed.append(sum([growth_mtd_fmt.get(k,0) or 0 for k in others]))
-    summed.append(sum([growth_l3m_fmt.get(k,0) or 0 for k in others]))
-    summed.append(sum([growth_ytd_fmt.get(k,0) or 0 for k in others]))
-    summed.append(sum([ach_mtd_fmt.get(k,0) or 0 for k in others]))
-    summed.append(sum([ach_ytd_fmt.get(k,0) or 0 for k in others]))
+    summed.append(sum([v for k in others_keys if (v:=cont_map_fmt.get(k)) is not None]))
+    summed.append(sum([v for k in others_keys if (v:=value_mtd_fmt.get(k)) is not None]))
+    summed.append(sum([v for k in others_keys if (v:=value_ytd_fmt.get(k)) is not None]))
+    summed.append(sum([v for k in others_keys if (v:=growth_mtd_fmt.get(k)) is not None]))
+    summed.append(sum([v for k in others_keys if (v:=growth_l3m_fmt.get(k)) is not None]))
+    summed.append(sum([v for k in others_keys if (v:=growth_ytd_fmt.get(k)) is not None]))
+    summed.append(sum([v for k in others_keys if (v:=ach_mtd_fmt.get(k)) is not None]))
+    summed.append(sum([v for k in others_keys if (v:=ach_ytd_fmt.get(k)) is not None]))
     rows.append(summed)
 
 # ===============================
@@ -204,7 +204,8 @@ with pd.ExcelWriter(output, engine="xlsxwriter") as writer:
             if pd.isna(val):
                 ws.write_blank(r_idx, c_idx, None, num_fmt)
             else:
-                if "%Gr" in display_df.columns[c_idx] or "Achievement" in display_df.columns[c_idx] or "vs" in display_df.columns[c_idx]:
+                # Sesuaikan format angka / persentase
+                if display_df.columns[c_idx] in ["Cont YTD", "Growth MTD", "%Gr L3M", "Growth YTD", "Ach MTD", "Ach YTD"]:
                     if val >=0:
                         ws.write_number(r_idx, c_idx, val/100, pct_g)
                     else:
