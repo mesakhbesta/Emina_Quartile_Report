@@ -144,20 +144,20 @@ for f in st.session_state["format_select"]:
     ])
 
 # 3️⃣ Others (Format saja)
+# 3️⃣ Others (Format saja)
 others = [k for k in cont_map_fmt.keys() if k not in st.session_state["format_select"]]
 if others:
-    summed = [
-        "Others",
-        sum([cont_map_fmt.get(k,0) or 0 for k in others]),
-        sum([value_mtd_fmt.get(k,0) or 0 for k in others]),
-        sum([value_ytd_fmt.get(k,0) or 0 for k in others]),
-        sum([growth_mtd_fmt.get(k,0) or 0 for k in others]),
-        sum([growth_l3m_fmt.get(k,0) or 0 for k in others]),
-        sum([growth_ytd_fmt.get(k,0) or 0 for k in others]),
-        sum([ach_mtd_fmt.get(k,0) or 0 for k in others]),
-        sum([ach_ytd_fmt.get(k,0) or 0 for k in others])
+    summed = ["Others"]
+    metric_cols = [
+        value_mtd_fmt, value_ytd_fmt, growth_mtd_fmt, growth_l3m_fmt,
+        growth_ytd_fmt, ach_mtd_fmt, ach_ytd_fmt, cont_map_fmt
     ]
+    # Hitung sum per metric, skip None
+    for metric in metric_cols:
+        val = sum([metric.get(k, 0) or 0 for k in others])
+        summed.append(val)
     rows.append(summed)
+
 
 # ===============================
 # DISPLAY DATAFRAME
@@ -226,3 +226,4 @@ st.download_button(
     "Metrics_Report.xlsx",
     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
 )
+
