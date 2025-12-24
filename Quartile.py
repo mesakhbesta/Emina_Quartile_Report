@@ -1,238 +1,175 @@
 import streamlit as st
 import pandas as pd
-import numpy as np
 from io import BytesIO
-import xlsxwriter
-from datetime import datetime
 
+# ===============================
+# PAGE CONFIG
+# ===============================
 st.set_page_config(layout="wide")
-st.title("Quartile Report Emina")
+st.title("Dynamic Metrics Report (Format & Kategori)")
 
-# =========================
-# Sidebar: Upload + Cut Off
-# =========================
-cut_off_date = st.sidebar.date_input("📅 Tanggal Cut Off")
+# ===============================
+# FILE UPLOAD
+# ===============================
+with st.sidebar.expander("Upload Excel Files", expanded=True):
+    format_file = st.file_uploader("Format File", type=["xlsx"])
+    category_file = st.file_uploader("Kategori File", type=["xlsx"])
 
-with st.sidebar.expander("📤 Upload FORMAT", expanded=True):
-    format_files = {
-        "Q1": st.file_uploader("Format Q1", type="xlsx"),
-        "Q2": st.file_uploader("Format Q2", type="xlsx"),
-        "Q3": st.file_uploader("Format Q3", type="xlsx"),
-        "Q4": st.file_uploader("Format Q4", type="xlsx"),
-    }
-
-with st.sidebar.expander("📤 Upload KATEGORI", expanded=True):
-    category_files = {
-        "Q1": st.file_uploader("Kategori Q1", type="xlsx"),
-        "Q2": st.file_uploader("Kategori Q2", type="xlsx"),
-        "Q3": st.file_uploader("Kategori Q3", type="xlsx"),
-        "Q4": st.file_uploader("Kategori Q4", type="xlsx"),
-    }
-
-# =========================
-# Helper Functions
-# =========================
-def safe_read_excel(file, sheet, skiprows=0):
-    try:
-        df = pd.read_excel(file, sheet_name=sheet, skiprows=skiprows)
-        df.columns = df.columns.astype(str).str.strip()
-        return df
-    except Exception:
-        return pd.DataFrame()
-
-def pick_highest_q(files):
-    for q in ["Q4", "Q3", "Q2", "Q1"]:
-        if files.get(q):
-            return files[q]
-    return None
-
-def process_files(files, is_category=False):
-    result = {}
-    # YTD
-    for q, col in zip(["Q1","Q2","Q3","Q4"], ["YTD Q1","YTD Q2","YTD Q3","YTD Q4"]):
-        if files.get(q):
-            df = safe_read_excel(files[q], "Sheet 5", skiprows=1)
-            key = next((c for c in df.columns if "Product" in c), None)
-            val = next((c for c in df.columns if "vs LY" in c), None)
-            if key and val:
-                df = df[~df[key].str.lower().eq("grand total")]
-                if is_category:
-                    df = df[~df[key].str.lower().eq("others")]
-                result[col] = df.set_index(key)[val]
-
-    latest = pick_highest_q(files)
-    if not latest:
-        return pd.DataFrame()
-
-    # CONT
-    df = safe_read_excel(latest, "Sheet 18", skiprows=0)
-    key = next((c for c in df.columns if "Product" in c), None)
-    val = next((c for c in df.columns if "Total Current DO TP2" in c), None)
-    if key and val:
-        df = df[~df[key].str.lower().eq("grand total")]
-        if is_category:
-            df = df[~df[key].str.lower().eq("others")]
-        result["Cont"] = df.set_index(key)[val]
-
-    # MTD
-    df = safe_read_excel(latest, "Sheet 4", skiprows=1)
-    key = next((c for c in df.columns if "Product" in c), None)
-    val = next((c for c in df.columns if "vs LY" in c), None)
-    if key and val:
-        df = df[~df[key].str.lower().eq("grand total")]
-        if is_category:
-            df = df[~df[key].str.lower().eq("others")]
-        result["MTD"] = df.set_index(key)[val]
-
-    # %Gr L3M
-    df = safe_read_excel(latest, "Sheet 3", skiprows=1)
-    key = next((c for c in df.columns if "Product" in c), None)
-    val = next((c for c in df.columns if "vs L3M" in c), None)
-    if key and val:
-        df = df[~df[key].str.lower().eq("grand total")]
-        if is_category:
-            df = df[~df[key].str.lower().eq("others")]
-        result["%Gr L3M MTD"] = df.set_index(key)[val]
-
-    return pd.DataFrame(result).fillna(0)
-
-# =========================
-# Load Data
-# =========================
-df_format = process_files(format_files, is_category=False)
-df_category = process_files(category_files, is_category=True)
-
-if df_format.empty and df_category.empty:
-    st.info("⬅️ Upload minimal satu file (Format atau Kategori)")
+if not format_file or not category_file:
+    st.warning("Please upload both Format and Kategori files")
     st.stop()
 
-# =========================
-# Filter Selection
-# =========================
-format_options = df_format.index.tolist() if not df_format.empty else []
-category_options = df_category.index.tolist() if not df_category.empty else []
+# ===============================
+# HELPER FUNCTIONS
+# ===============================
+def parse_percent(val):
+    if pd.isna(val):
+        return None
+    if isinstance(val, str):
+        return round(float(val.replace("%","").replace(",", ".")), 1)
+    return round(float(val)*100, 1)
 
-selected_format = st.sidebar.multiselect("Filter Format", format_options)
-selected_category = st.sidebar.multiselect("Filter Kategori", category_options)
+def parse_number(val):
+    if pd.isna(val):
+        return None
+    return round(float(val),0)
 
-if not selected_format and not selected_category:
-    st.info("⬅️ Silakan pilih minimal satu filter (Format atau Kategori) untuk menampilkan data")
-    st.stop()
+def load_metrics(file):
+    # Ambil sheet pertama atau sheet spesifik sesuai kebutuhan
+    df = pd.read_excel(file, sheet_name=0)
+    df = df.dropna(subset=["Product P"])
+    # Ambil metrics kolom yang ada
+    metrics_cols = [c for c in df.columns if c != "Product P"]
+    for col in metrics_cols:
+        if "vs" in col or "Achievement" in col or "%Gr" in col:
+            df[col] = df[col].apply(parse_percent)
+        else:
+            df[col] = df[col].apply(parse_number)
+    return df
 
-# =========================
-# Format (Others)
-# =========================
-df_fmt_final = pd.DataFrame()
-if selected_format and not df_format.empty:
-    selected_df = df_format.loc[selected_format]
-    others_df = df_format.drop(selected_format, errors="ignore")
-    if not others_df.empty:
-        others = others_df.sum().to_frame().T
-        others.index = ["Others"]
-        df_fmt_final = pd.concat([selected_df, others])
-    else:
-        df_fmt_final = selected_df
+# ===============================
+# LOAD DATA
+# ===============================
+format_df = load_metrics(format_file)
+category_df = load_metrics(category_file)
 
-# =========================
-# Kategori
-# =========================
-df_cat_final = pd.DataFrame()
-if selected_category and not df_category.empty:
-    df_cat_final = df_category.loc[selected_category]
+# ===============================
+# FILTERS: SELECT ALL / DESELECT ALL RADIO
+# ===============================
+st.sidebar.subheader("Filter Kategori")
+if "category_select" not in st.session_state:
+    st.session_state["category_select"] = list(category_df["Product P"].unique())
 
-# =========================
-# Merge Display
-# =========================
-display_frames = []
-if not df_cat_final.empty:
-    df_cat_display = df_cat_final.copy()
-    df_cat_display.index = ["Kategori - " + str(i) for i in df_cat_display.index]
-    display_frames.append(df_cat_display)
-if not df_fmt_final.empty:
-    df_fmt_display = df_fmt_final.copy()
-    df_fmt_display.index = ["Format - " + str(i) for i in df_fmt_display.index]
-    display_frames.append(df_fmt_display)
+cat_all_radio = st.sidebar.radio("Kategori Select All / Deselect All", ("Select All", "Deselect All"))
+if cat_all_radio == "Select All":
+    st.session_state["category_select"] = list(category_df["Product P"].unique())
+else:
+    st.session_state["category_select"] = []
 
-df_final_display = pd.concat(display_frames)
+st.session_state["category_select"] = st.sidebar.multiselect(
+    "Pilih Kategori", options=list(category_df["Product P"].unique()),
+    default=st.session_state["category_select"]
+)
 
-# =========================
-# MultiIndex Columns
-# =========================
-columns = pd.MultiIndex.from_tuples([
-    ("Sell In YTD", "Cont"),
-    ("Growth", "YTD Q1"),
-    ("Growth", "YTD Q2"),
-    ("Growth", "YTD Q3"),
-    ("Growth", "MTD"),
-    ("Growth", "%Gr L3M MTD"),
-    ("Growth", "YTD Q4"),
-])
-df_display = pd.DataFrame(index=df_final_display.index, columns=columns)
-for c in df_final_display.columns:
-    if c == "Cont":
-        df_display[("Sell In YTD","Cont")] = df_final_display[c]/100
-    elif c in df_display.columns.get_level_values(1):
-        df_display[("Growth",c)] = df_final_display[c]/100
+st.sidebar.subheader("Filter Format")
+if "format_select" not in st.session_state:
+    st.session_state["format_select"] = list(format_df["Product P"].unique())
 
-# Format ke persen 2 desimal
-df_display = df_display.applymap(lambda x: f"{x*100:.2f}%" if pd.notnull(x) else "0.00%")
+fmt_all_radio = st.sidebar.radio("Format Select All / Deselect All", ("Select All", "Deselect All"), key="fmt_radio")
+if fmt_all_radio == "Select All":
+    st.session_state["format_select"] = list(format_df["Product P"].unique())
+else:
+    st.session_state["format_select"] = []
 
-# =========================
-# Tanggal Cut Off Manual Bahasa Indonesia
-# =========================
-bulan_id = {
-    1: "Januari", 2: "Februari", 3: "Maret", 4: "April",
-    5: "Mei", 6: "Juni", 7: "Juli", 8: "Agustus",
-    9: "September", 10: "Oktober", 11: "November", 12: "Desember"
-}
-cut_off_str = f"{cut_off_date.day} {bulan_id[cut_off_date.month]} {cut_off_date.year}"
+st.session_state["format_select"] = st.sidebar.multiselect(
+    "Pilih Format", options=list(format_df["Product P"].unique()),
+    default=st.session_state["format_select"]
+)
 
-st.markdown(f"**Cut Off: {cut_off_str}**")
-st.dataframe(df_display, use_container_width=True)
+# ===============================
+# BUILD DISPLAY DATA
+# ===============================
+display_rows = []
 
-# =========================
-# Export Excel
-# =========================
-def to_excel(df, cut_off_str):
-    output = BytesIO()
-    wb = xlsxwriter.Workbook(output, {'nan_inf_to_errors': True})
+# 1️⃣ Kategori selalu di atas
+for idx, row in category_df.iterrows():
+    if row["Product P"] in st.session_state["category_select"]:
+        display_rows.append({
+            "Name": row["Product P"],
+            **{c: row[c] for c in category_df.columns if c!="Product P"}
+        })
+
+# 2️⃣ Format yang dipilih
+selected_format_df = format_df[format_df["Product P"].isin(st.session_state["format_select"])]
+for idx, row in selected_format_df.iterrows():
+    display_rows.append({
+        "Name": row["Product P"],
+        **{c: row[c] for c in format_df.columns if c!="Product P"}
+    })
+
+# 3️⃣ Others (Format saja)
+others_df = format_df[~format_df["Product P"].isin(st.session_state["format_select"])]
+if not others_df.empty:
+    summed = {"Name": "Others"}
+    metric_cols = [c for c in format_df.columns if c!="Product P"]
+    for c in metric_cols:
+        summed[c] = others_df[c].sum(min_count=1)
+    display_rows.append(summed)
+
+# ===============================
+# CREATE DISPLAY DATAFRAME
+# ===============================
+display_df = pd.DataFrame(display_rows)
+
+# Styling: Name biru
+def highlight_name(row):
+    styles = [""] * len(row)
+    styles[0] = "color: blue"
+    return styles
+
+st.dataframe(display_df.style.apply(highlight_name, axis=1), use_container_width=True)
+
+# ===============================
+# DOWNLOAD EXCEL
+# ===============================
+output = BytesIO()
+with pd.ExcelWriter(output, engine="xlsxwriter") as writer:
+    wb = writer.book
     ws = wb.add_worksheet("Report")
+    writer.sheets["Report"] = ws
 
-    header = wb.add_format({'bold': True, 'align': 'center', 'border': 1})
-    cell = wb.add_format({'align': 'center', 'border': 1})
-    percent_fmt = wb.add_format({'align': 'center','border':1,'num_format':'0.00%'})
-    cut_off_fmt = wb.add_format({'bold': True, 'align':'left'})
+    header_fmt = wb.add_format({"bold": True, "align":"center","border":1})
+    name_fmt = wb.add_format({"bold": False, "font_color":"blue","border":1})
+    num_fmt = wb.add_format({"border":1, "num_format":"#,##0"})
+    pct_g = wb.add_format({"border":1,"num_format":"0.0%","font_color":"green"})
+    pct_r = wb.add_format({"border":1,"num_format":"0.0%","font_color":"red"})
 
-    # Baris Cut Off
-    ws.write(0, 0, f"Cut Off: {cut_off_str}", cut_off_fmt)
+    # Write header
+    for col_idx, col in enumerate(display_df.columns):
+        ws.write(0, col_idx, col, header_fmt)
 
-    # Header
-    ws.write(1, 0, "Format/Kategori", header)
-    ws.write(1, 1, "Sell In YTD", header)
-    ws.merge_range(1,2,1,7,"Growth", header)
+    # Write rows
+    for r_idx, row in enumerate(display_df.itertuples(index=False), start=1):
+        ws.write(r_idx, 0, row[0], name_fmt)
+        for c_idx, val in enumerate(row[1:], start=1):
+            if pd.isna(val):
+                ws.write_blank(r_idx, c_idx, None, num_fmt)
+            else:
+                if "%Gr" in display_df.columns[c_idx] or "Achievement" in display_df.columns[c_idx] or "vs" in display_df.columns[c_idx]:
+                    if val >=0:
+                        ws.write_number(r_idx, c_idx, val/100, pct_g)
+                    else:
+                        ws.write_number(r_idx, c_idx, val/100, pct_r)
+                else:
+                    ws.write_number(r_idx, c_idx, val, num_fmt)
 
-    headers = ["Cont","YTD Q1","YTD Q2","YTD Q3","MTD","%Gr L3M MTD","YTD Q4"]
-    ws.write_row(2,1,headers,header)
+    ws.set_column(0, 0, 40)
+    ws.set_column(1, len(display_df.columns)-1, 18)
 
-    for r, (idx,row) in enumerate(df.iterrows()):
-        ws.write(r+3,0,idx,cell)
-        for c,val in enumerate(row):
-            try:
-                ws.write(r+3,c+1,float(val.strip('%'))/100, percent_fmt)
-            except:
-                ws.write(r+3,c+1,val,cell)
-
-    ws.set_column(0,0,25)
-    ws.set_column(1,1,12)
-    ws.set_column(2,7,12)
-
-    wb.close()
-    output.seek(0)
-    return output
-
+output.seek(0)
 st.download_button(
-    "⬇️ Download Excel",
-    to_excel(df_display, cut_off_str),
-    "Quartile_Report.xlsx",
+    "Download Excel",
+    output,
+    "Metrics_Report.xlsx",
     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
 )
