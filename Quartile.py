@@ -26,7 +26,9 @@ def parse_percent(val):
     try:
         if val is None or (isinstance(val, str) and val.strip() == ""):
             return 0
-        return float(val)
+        if isinstance(val, str):
+            return round(float(val.replace("%","").replace(",", ".")), 1)
+        return round(float(val)*100, 1)
     except:
         return 0
 
@@ -34,7 +36,7 @@ def parse_number(val):
     try:
         if val is None or (isinstance(val, str) and val.strip() == ""):
             return 0
-        return float(val)
+        return round(float(val),0)
     except:
         return 0
 
@@ -74,7 +76,7 @@ ach_mtd_cat = load_map("Sheet 13", "Product P", "Current Achievement", file=cate
 ach_ytd_cat = load_map("Sheet 14", "Product P", "Current Achievement TP2", file=category_file, parser=parse_percent)
 
 # ===============================
-# FILTERS
+# FILTERS: SELECT ALL / DESELECT ALL RADIO
 # ===============================
 st.sidebar.subheader("Filter Kategori")
 if "category_select" not in st.session_state:
@@ -111,7 +113,7 @@ st.session_state["format_select"] = st.sidebar.multiselect(
 # ===============================
 rows = []
 
-# 1️⃣ Kategori
+# 1️⃣ Kategori di atas
 for k in st.session_state["category_select"]:
     rows.append([
         k,
@@ -139,7 +141,7 @@ for f in st.session_state["format_select"]:
         ach_ytd_fmt.get(f,0)
     ])
 
-# 3️⃣ Others = sum dari unit format yang **tidak dipilih**
+# 3️⃣ Others: sum dari semua unit format yang tidak dipilih
 others_keys = [k for k in cont_map_fmt.keys() if k not in st.session_state["format_select"]]
 if others_keys:
     summed = ["Others"]
@@ -154,7 +156,7 @@ if others_keys:
     rows.append(summed)
 
 # ===============================
-# CONVERT TO DATAFRAME
+# CONVERT TO DATAFRAME & FORMAT PERCENTAGE
 # ===============================
 display_df = pd.DataFrame(rows, columns=[
     "Produk",
@@ -170,8 +172,14 @@ display_df = pd.DataFrame(rows, columns=[
 
 # Format persentase untuk Streamlit
 pct_cols = ["Cont YTD","Growth MTD","%Gr L3M","Growth YTD","Ach MTD","Ach YTD"]
+
+def fmt_pct(x):
+    if pd.isna(x):
+        return ""
+    return f"{x:.1f}%"
+
 for col in pct_cols:
-    display_df[col] = display_df[col].apply(lambda x: f"{x:.1f}%" if pd.notna(x) else "")
+    display_df[col] = display_df[col].apply(fmt_pct)
 
 # Styling biru untuk nama unit
 def highlight_name(row):
@@ -196,11 +204,11 @@ with pd.ExcelWriter(output, engine="xlsxwriter") as writer:
     pct_g = wb.add_format({"border":1,"num_format":"0.0%","font_color":"green"})
     pct_r = wb.add_format({"border":1,"num_format":"0.0%","font_color":"red"})
 
-    # Header
+    # Write header
     for col_idx, col in enumerate(display_df.columns):
         ws.write(0, col_idx, col, header_fmt)
 
-    # Rows
+    # Write rows
     for r_idx, row in enumerate(display_df.itertuples(index=False), start=1):
         ws.write(r_idx, 0, row[0], name_fmt)
         for c_idx, val in enumerate(row[1:], start=1):
