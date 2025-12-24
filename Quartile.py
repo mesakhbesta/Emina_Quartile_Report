@@ -145,7 +145,6 @@ for f in st.session_state["format_select"]:
 others_keys = [k for k in cont_map_fmt.keys() if k not in st.session_state["format_select"]]
 if others_keys:
     summed = ["Others"]
-    # Sum metric, pastikan None = 0
     summed.append(sum([cont_map_fmt.get(k,0) or 0 for k in others_keys]))
     summed.append(sum([value_mtd_fmt.get(k,0) or 0 for k in others_keys]))
     summed.append(sum([value_ytd_fmt.get(k,0) or 0 for k in others_keys]))
@@ -157,7 +156,7 @@ if others_keys:
     rows.append(summed)
 
 # ===============================
-# DISPLAY DATAFRAME
+# CONVERT TO DATAFRAME & FORMAT PERCENTAGE
 # ===============================
 display_df = pd.DataFrame(rows, columns=[
     "Produk",
@@ -171,7 +170,18 @@ display_df = pd.DataFrame(rows, columns=[
     "Ach YTD"
 ])
 
-# Styling: Name biru
+# Format persentase untuk Streamlit
+pct_cols = ["Cont YTD","Growth MTD","%Gr L3M","Growth YTD","Ach MTD","Ach YTD"]
+
+def fmt_pct(x):
+    if pd.isna(x):
+        return ""
+    return f"{x:.1f}%"
+
+for col in pct_cols:
+    display_df[col] = display_df[col].apply(fmt_pct)
+
+# Styling biru untuk nama unit
 def highlight_name(row):
     styles = [""] * len(row)
     styles[0] = "color: blue"
@@ -202,14 +212,18 @@ with pd.ExcelWriter(output, engine="xlsxwriter") as writer:
     for r_idx, row in enumerate(display_df.itertuples(index=False), start=1):
         ws.write(r_idx, 0, row[0], name_fmt)
         for c_idx, val in enumerate(row[1:], start=1):
-            if pd.isna(val):
+            if pd.isna(val) or val=="":
                 ws.write_blank(r_idx, c_idx, None, num_fmt)
             else:
-                # Format sesuai tipe metric
-                if display_df.columns[c_idx] in ["Cont YTD", "Growth MTD", "%Gr L3M", "Growth YTD", "Ach MTD", "Ach YTD"]:
-                    ws.write_number(r_idx, c_idx, val/100, pct_g if val>=0 else pct_r)
+                # Remove % string for excel numbers
+                try:
+                    val_num = float(str(val).replace("%",""))
+                except:
+                    val_num = val
+                if display_df.columns[c_idx] in pct_cols:
+                    ws.write_number(r_idx, c_idx, val_num/100, pct_g if val_num>=0 else pct_r)
                 else:
-                    ws.write_number(r_idx, c_idx, val, num_fmt)
+                    ws.write_number(r_idx, c_idx, val_num, num_fmt)
 
     ws.set_column(0, 0, 40)
     ws.set_column(1, len(display_df.columns)-1, 18)
