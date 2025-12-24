@@ -145,14 +145,15 @@ for f in st.session_state["format_select"]:
 others_keys = [k for k in cont_map_fmt.keys() if k not in st.session_state["format_select"]]
 if others_keys:
     summed = ["Others"]
-    summed.append(sum([v for k in others_keys if (v:=cont_map_fmt.get(k)) is not None]))
-    summed.append(sum([v for k in others_keys if (v:=value_mtd_fmt.get(k)) is not None]))
-    summed.append(sum([v for k in others_keys if (v:=value_ytd_fmt.get(k)) is not None]))
-    summed.append(sum([v for k in others_keys if (v:=growth_mtd_fmt.get(k)) is not None]))
-    summed.append(sum([v for k in others_keys if (v:=growth_l3m_fmt.get(k)) is not None]))
-    summed.append(sum([v for k in others_keys if (v:=growth_ytd_fmt.get(k)) is not None]))
-    summed.append(sum([v for k in others_keys if (v:=ach_mtd_fmt.get(k)) is not None]))
-    summed.append(sum([v for k in others_keys if (v:=ach_ytd_fmt.get(k)) is not None]))
+    # Sum metric, pastikan None = 0
+    summed.append(sum([cont_map_fmt.get(k,0) or 0 for k in others_keys]))
+    summed.append(sum([value_mtd_fmt.get(k,0) or 0 for k in others_keys]))
+    summed.append(sum([value_ytd_fmt.get(k,0) or 0 for k in others_keys]))
+    summed.append(sum([growth_mtd_fmt.get(k,0) or 0 for k in others_keys]))
+    summed.append(sum([growth_l3m_fmt.get(k,0) or 0 for k in others_keys]))
+    summed.append(sum([growth_ytd_fmt.get(k,0) or 0 for k in others_keys]))
+    summed.append(sum([ach_mtd_fmt.get(k,0) or 0 for k in others_keys]))
+    summed.append(sum([ach_ytd_fmt.get(k,0) or 0 for k in others_keys]))
     rows.append(summed)
 
 # ===============================
@@ -204,12 +205,9 @@ with pd.ExcelWriter(output, engine="xlsxwriter") as writer:
             if pd.isna(val):
                 ws.write_blank(r_idx, c_idx, None, num_fmt)
             else:
-                # Sesuaikan format angka / persentase
+                # Format sesuai tipe metric
                 if display_df.columns[c_idx] in ["Cont YTD", "Growth MTD", "%Gr L3M", "Growth YTD", "Ach MTD", "Ach YTD"]:
-                    if val >=0:
-                        ws.write_number(r_idx, c_idx, val/100, pct_g)
-                    else:
-                        ws.write_number(r_idx, c_idx, val/100, pct_r)
+                    ws.write_number(r_idx, c_idx, val/100, pct_g if val>=0 else pct_r)
                 else:
                     ws.write_number(r_idx, c_idx, val, num_fmt)
 
