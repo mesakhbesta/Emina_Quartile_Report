@@ -23,6 +23,7 @@ if not format_file or not category_file:
 # HELPER FUNCTIONS
 # ===============================
 def parse_percent(val):
+    """Convert string percent '20,2%' atau number menjadi float persen"""
     try:
         if val is None or (isinstance(val, str) and val.strip() == ""):
             return 0.0
@@ -41,6 +42,7 @@ def parse_number(val):
         return 0
 
 def load_metrics(file):
+    """Load all metric dari Excel"""
     cont = pd.read_excel(file, sheet_name="Sheet 18", usecols=["Product P","% of Total Current DO TP2 along Product P, Product P Hidden"])
     value_mtd = pd.read_excel(file, sheet_name="Sheet 1", usecols=["Product P","Current DO"])
     value_ytd = pd.read_excel(file, sheet_name="Sheet 1", usecols=["Product P","Current DO TP2"])
@@ -59,7 +61,7 @@ def load_metrics(file):
     df = df.merge(ach_mtd.rename(columns={"Current Achievement":"Ach MTD"}), on="Product P", how="left")
     df = df.merge(ach_ytd.rename(columns={"Current Achievement TP2":"Ach YTD"}), on="Product P", how="left")
 
-    # parse numbers
+    # parse
     for col in ["Cont YTD","Growth MTD","%Gr L3M","Growth YTD","Ach MTD","Ach YTD"]:
         df[col] = df[col].apply(parse_percent)
     for col in ["Value MTD","Value YTD"]:
@@ -74,7 +76,7 @@ df_format = load_metrics(format_file)
 df_category = load_metrics(category_file)
 
 # ===============================
-# FILTERS: SELECT ALL / DESELECT ALL RADIO
+# FILTERS: SELECT ALL / DESELECT ALL
 # ===============================
 st.sidebar.subheader("Filter Kategori")
 if "category_select" not in st.session_state:
@@ -111,7 +113,7 @@ st.session_state["format_select"] = st.sidebar.multiselect(
 # ===============================
 rows = []
 
-# 1️⃣ Kategori di atas
+# 1️⃣ Kategori
 cat_df = df_category[df_category["Product P"].isin(st.session_state["category_select"])]
 rows.append(cat_df)
 
@@ -119,10 +121,9 @@ rows.append(cat_df)
 fmt_df = df_format[df_format["Product P"].isin(st.session_state["format_select"])]
 rows.append(fmt_df)
 
-# 3️⃣ Others = sum metric dari format yang **tidak dipilih**
+# 3️⃣ Others = sum dari format yang tidak dipilih
 others_df = df_format[~df_format["Product P"].isin(st.session_state["format_select"])]
 if not others_df.empty:
-    # SUM metric persentase **langsung dalam angka %**
     others_sum = pd.DataFrame({
         "Product P":["Others"],
         "Cont YTD":[others_df["Cont YTD"].sum()],
@@ -149,7 +150,7 @@ def fmt_pct(x):
 for col in pct_cols:
     display_df[col] = display_df[col].apply(fmt_pct)
 
-# Styling biru untuk nama unit
+# Styling biru
 def highlight_name(row):
     styles = [""]*len(row)
     styles[0] = "color: blue"
