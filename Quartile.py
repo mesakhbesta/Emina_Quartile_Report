@@ -2,132 +2,196 @@ import streamlit as st
 import pandas as pd
 from io import BytesIO
 
+# ===============================
+# PAGE CONFIG
+# ===============================
 st.set_page_config(layout="wide")
-st.title("Metrics Report (Format & Kategori)")
+st.title("Dynamic Metrics Report (Format & Kategori)")
 
-# ===== FILE UPLOAD =====
-with st.sidebar.expander("Upload Files", expanded=True):
+# ===============================
+# FILE UPLOAD
+# ===============================
+with st.sidebar.expander("Upload Excel Files", expanded=True):
     format_file = st.file_uploader("Format File", type=["xlsx"])
     category_file = st.file_uploader("Kategori File", type=["xlsx"])
 
 if not format_file or not category_file:
-    st.warning("Upload both Format and Kategori files")
+    st.warning("Please upload both Format and Kategori files")
     st.stop()
 
-# ===== HELPER =====
-def parse_number(val):
+# ===============================
+# HELPER FUNCTIONS
+# ===============================
+def parse_percent(val):
     try:
-        if pd.isna(val):
+        if val is None or (isinstance(val, str) and val.strip() == ""):
             return 0
-        return float(val)
+        if isinstance(val, str):
+            return round(float(val.replace("%","").replace(",", ".")), 1)
+        return round(float(val)*100, 1)
     except:
         return 0
 
-def load_data(file):
-    # Ambil Product P + Cont YTD
-    df = pd.read_excel(file, sheet_name="Sheet 18", usecols=["Product P","% of Total Current DO TP2 along Product P, Product P Hidden"])
-    df = df.rename(columns={"% of Total Current DO TP2 along Product P, Product P Hidden":"Cont YTD"})
-    
-    # Load metrics lain
-    df_value_mtd = pd.read_excel(file, sheet_name="Sheet 1", usecols=["Product P","Current DO"]).rename(columns={"Current DO":"Value MTD"})
-    df_value_ytd = pd.read_excel(file, sheet_name="Sheet 1", usecols=["Product P","Current DO TP2"]).rename(columns={"Current DO TP2":"Value YTD"})
-    df_growth_mtd = pd.read_excel(file, sheet_name="Sheet 4", skiprows=1, usecols=["Product P","vs LY"]).rename(columns={"vs LY":"Growth MTD"})
-    df_growth_l3m = pd.read_excel(file, sheet_name="Sheet 3", skiprows=1, usecols=["Product P","vs L3M"]).rename(columns={"vs L3M":"%Gr L3M"})
-    df_growth_ytd = pd.read_excel(file, sheet_name="Sheet 5", skiprows=1, usecols=["Product P","vs LY"]).rename(columns={"vs LY":"Growth YTD"})
-    df_ach_mtd = pd.read_excel(file, sheet_name="Sheet 13", usecols=["Product P","Current Achievement"]).rename(columns={"Current Achievement":"Ach MTD"})
-    df_ach_ytd = pd.read_excel(file, sheet_name="Sheet 14", usecols=["Product P","Current Achievement TP2"]).rename(columns={"Current Achievement TP2":"Ach YTD"})
+def parse_number(val):
+    try:
+        if val is None or (isinstance(val, str) and val.strip() == ""):
+            return 0
+        return round(float(val),0)
+    except:
+        return 0
 
-    # Merge semua
-    df = df.merge(df_value_mtd,on="Product P",how="left")
-    df = df.merge(df_value_ytd,on="Product P",how="left")
-    df = df.merge(df_growth_mtd,on="Product P",how="left")
-    df = df.merge(df_growth_l3m,on="Product P",how="left")
-    df = df.merge(df_growth_ytd,on="Product P",how="left")
-    df = df.merge(df_ach_mtd,on="Product P",how="left")
-    df = df.merge(df_ach_ytd,on="Product P",how="left")
+def load_map(sheet, key_col, val_col, file, skip=0, parser=None):
+    tmp = pd.read_excel(file, sheet_name=sheet, skiprows=skip)
+    tmp = tmp.dropna(subset=[key_col])
+    result = {}
+    for _, r in tmp.iterrows():
+        v = r[val_col] if val_col in r else 0
+        if parser:
+            v = parser(v)
+        result[r[key_col]] = v
+    return result
 
-    # Convert Value MTD/YTD ke float
-    for col in ["Value MTD","Value YTD"]:
-        df[col] = df[col].apply(parse_number)
+# ===============================
+# LOAD FORMAT METRICS
+# ===============================
+cont_map_fmt = load_map("Sheet 18", "Product P", "% of Total Current DO TP2 along Product P, Product P Hidden", file=format_file, parser=parse_percent)
+value_mtd_fmt = load_map("Sheet 1", "Product P", "Current DO", file=format_file, parser=parse_number)
+value_ytd_fmt = load_map("Sheet 1", "Product P", "Current DO TP2", file=format_file, parser=parse_number)
+growth_mtd_fmt = load_map("Sheet 4", "Product P", "vs LY", skip=1, file=format_file, parser=parse_percent)
+growth_l3m_fmt = load_map("Sheet 3", "Product P", "vs L3M", skip=1, file=format_file, parser=parse_percent)
+growth_ytd_fmt = load_map("Sheet 5", "Product P", "vs LY", skip=1, file=format_file, parser=parse_percent)
+ach_mtd_fmt = load_map("Sheet 13", "Product P", "Current Achievement", file=format_file, parser=parse_percent)
+ach_ytd_fmt = load_map("Sheet 14", "Product P", "Current Achievement TP2", file=format_file, parser=parse_percent)
 
-    return df
+# ===============================
+# LOAD CATEGORY METRICS
+# ===============================
+cont_map_cat = load_map("Sheet 18", "Product P", "% of Total Current DO TP2 along Product P, Product P Hidden", file=category_file, parser=parse_percent)
+value_mtd_cat = load_map("Sheet 1", "Product P", "Current DO", file=category_file, parser=parse_number)
+value_ytd_cat = load_map("Sheet 1", "Product P", "Current DO TP2", file=category_file, parser=parse_number)
+growth_mtd_cat = load_map("Sheet 4", "Product P", "vs LY", skip=1, file=category_file, parser=parse_percent)
+growth_l3m_cat = load_map("Sheet 3", "Product P", "vs L3M", skip=1, file=category_file, parser=parse_percent)
+growth_ytd_cat = load_map("Sheet 5", "Product P", "vs LY", skip=1, file=category_file, parser=parse_percent)
+ach_mtd_cat = load_map("Sheet 13", "Product P", "Current Achievement", file=category_file, parser=parse_percent)
+ach_ytd_cat = load_map("Sheet 14", "Product P", "Current Achievement TP2", file=category_file, parser=parse_percent)
 
-# ===== LOAD DATA =====
-df_format = load_data(format_file)
-df_category = load_data(category_file)
-
-# ===== FILTERS =====
+# ===============================
+# FILTERS: SELECT ALL / DESELECT ALL RADIO
+# ===============================
 st.sidebar.subheader("Filter Kategori")
-cat_all = df_category["Product P"].tolist()
 if "category_select" not in st.session_state:
-    st.session_state["category_select"] = cat_all.copy()
+    st.session_state["category_select"] = list(cont_map_cat.keys())
 
-cat_radio = st.sidebar.radio("Kategori Select All / Deselect All", ["Select All","Deselect All"], key="cat_radio")
-st.session_state["category_select"] = cat_all.copy() if cat_radio=="Select All" else []
+cat_all_radio = st.sidebar.radio("Kategori Select All / Deselect All", ("Select All", "Deselect All"), key="cat_radio")
+if cat_all_radio == "Select All":
+    st.session_state["category_select"] = list(cont_map_cat.keys())
+else:
+    st.session_state["category_select"] = []
 
-st.session_state["category_select"] = st.sidebar.multiselect("Pilih Kategori", options=cat_all, default=st.session_state["category_select"])
+st.session_state["category_select"] = st.sidebar.multiselect(
+    "Pilih Kategori", options=list(cont_map_cat.keys()),
+    default=st.session_state["category_select"]
+)
 
 st.sidebar.subheader("Filter Format")
-fmt_all = df_format["Product P"].tolist()
 if "format_select" not in st.session_state:
-    st.session_state["format_select"] = fmt_all.copy()
+    st.session_state["format_select"] = list(cont_map_fmt.keys())
 
-fmt_radio = st.sidebar.radio("Format Select All / Deselect All", ["Select All","Deselect All"], key="fmt_radio")
-st.session_state["format_select"] = fmt_all.copy() if fmt_radio=="Select All" else []
+fmt_all_radio = st.sidebar.radio("Format Select All / Deselect All", ("Select All", "Deselect All"), key="fmt_radio")
+if fmt_all_radio == "Select All":
+    st.session_state["format_select"] = list(cont_map_fmt.keys())
+else:
+    st.session_state["format_select"] = []
 
-st.session_state["format_select"] = st.sidebar.multiselect("Pilih Format", options=fmt_all, default=st.session_state["format_select"])
+st.session_state["format_select"] = st.sidebar.multiselect(
+    "Pilih Format", options=list(cont_map_fmt.keys()),
+    default=st.session_state["format_select"]
+)
 
-# ===== BUILD DISPLAY =====
+# ===============================
+# BUILD DISPLAY DATA
+# ===============================
 rows = []
 
-# 1️⃣ Kategori
-cat_df = df_category[df_category["Product P"].isin(st.session_state["category_select"])]
-rows.append(cat_df)
+# 1️⃣ Kategori di atas
+for k in st.session_state["category_select"]:
+    rows.append([
+        k,
+        cont_map_cat.get(k,0),
+        value_mtd_cat.get(k,0),
+        value_ytd_cat.get(k,0),
+        growth_mtd_cat.get(k,0),
+        growth_l3m_cat.get(k,0),
+        growth_ytd_cat.get(k,0),
+        ach_mtd_cat.get(k,0),
+        ach_ytd_cat.get(k,0)
+    ])
 
 # 2️⃣ Format yang dipilih
-fmt_df = df_format[df_format["Product P"].isin(st.session_state["format_select"])]
-rows.append(fmt_df)
+for f in st.session_state["format_select"]:
+    rows.append([
+        f,
+        cont_map_fmt.get(f,0),
+        value_mtd_fmt.get(f,0),
+        value_ytd_fmt.get(f,0),
+        growth_mtd_fmt.get(f,0),
+        growth_l3m_fmt.get(f,0),
+        growth_ytd_fmt.get(f,0),
+        ach_mtd_fmt.get(f,0),
+        ach_ytd_fmt.get(f,0)
+    ])
 
-# 3️⃣ Others = sum format yang tidak dipilih
-others_df = df_format[~df_format["Product P"].isin(st.session_state["format_select"])]
-if not others_df.empty:
-    others_sum = pd.DataFrame({
-        "Product P":["Others"],
-        "Cont YTD":[others_df["Cont YTD"].sum()],
-        "Value MTD":[others_df["Value MTD"].sum()],
-        "Value YTD":[others_df["Value YTD"].sum()],
-        "Growth MTD":[others_df["Growth MTD"].sum()],
-        "%Gr L3M":[others_df["%Gr L3M"].sum()],
-        "Growth YTD":[others_df["Growth YTD"].sum()],
-        "Ach MTD":[others_df["Ach MTD"].sum()],
-        "Ach YTD":[others_df["Ach YTD"].sum()]
-    })
-    rows.append(others_sum)
+# 3️⃣ Others: sum dari semua unit format yang tidak dipilih
+others_keys = [k for k in cont_map_fmt.keys() if k not in st.session_state["format_select"]]
+if others_keys:
+    summed = ["Others"]
+    summed.append(sum([cont_map_fmt.get(k,0) for k in others_keys]))
+    summed.append(sum([value_mtd_fmt.get(k,0) for k in others_keys]))
+    summed.append(sum([value_ytd_fmt.get(k,0) for k in others_keys]))
+    summed.append(sum([growth_mtd_fmt.get(k,0) for k in others_keys]))
+    summed.append(sum([growth_l3m_fmt.get(k,0) for k in others_keys]))
+    summed.append(sum([growth_ytd_fmt.get(k,0) for k in others_keys]))
+    summed.append(sum([ach_mtd_fmt.get(k,0) for k in others_keys]))
+    summed.append(sum([ach_ytd_fmt.get(k,0) for k in others_keys]))
+    rows.append(summed)
 
-display_df = pd.concat(rows, ignore_index=True)
+# ===============================
+# CONVERT TO DATAFRAME & FORMAT PERCENTAGE
+# ===============================
+display_df = pd.DataFrame(rows, columns=[
+    "Produk",
+    "Cont YTD",
+    "Value MTD",
+    "Value YTD",
+    "Growth MTD",
+    "%Gr L3M",
+    "Growth YTD",
+    "Ach MTD",
+    "Ach YTD"
+])
 
-# ===== DISPLAY STREAMLIT (format persentase) =====
+# Format persentase untuk Streamlit
 pct_cols = ["Cont YTD","Growth MTD","%Gr L3M","Growth YTD","Ach MTD","Ach YTD"]
-display_df_formatted = display_df.copy()
 
 def fmt_pct(x):
-    try:
-        return f"{float(x):.1f}%" if pd.notna(x) else ""
-    except:
+    if pd.isna(x):
         return ""
+    return f"{x:.1f}%"
 
 for col in pct_cols:
-    display_df_formatted[col] = display_df_formatted[col].apply(fmt_pct)
+    display_df[col] = display_df[col].apply(fmt_pct)
 
-# Styling biru
+# Styling biru untuk nama unit
 def highlight_name(row):
-    styles = [""]*len(row)
+    styles = [""] * len(row)
     styles[0] = "color: blue"
     return styles
 
-st.dataframe(display_df_formatted.style.apply(highlight_name, axis=1), use_container_width=True)
+st.dataframe(display_df.style.apply(highlight_name, axis=1), use_container_width=True)
 
-# ===== DOWNLOAD EXCEL =====
+# ===============================
+# DOWNLOAD EXCEL
+# ===============================
 output = BytesIO()
 with pd.ExcelWriter(output, engine="xlsxwriter") as writer:
     wb = writer.book
@@ -140,22 +204,25 @@ with pd.ExcelWriter(output, engine="xlsxwriter") as writer:
     pct_g = wb.add_format({"border":1,"num_format":"0.0%","font_color":"green"})
     pct_r = wb.add_format({"border":1,"num_format":"0.0%","font_color":"red"})
 
-    # Header
+    # Write header
     for col_idx, col in enumerate(display_df.columns):
         ws.write(0, col_idx, col, header_fmt)
 
-    # Rows
+    # Write rows
     for r_idx, row in enumerate(display_df.itertuples(index=False), start=1):
         ws.write(r_idx, 0, row[0], name_fmt)
         for c_idx, val in enumerate(row[1:], start=1):
-            if pd.isna(val):
+            if pd.isna(val) or val=="":
                 ws.write_blank(r_idx, c_idx, None, num_fmt)
             else:
-                # Persentase vs angka biasa
+                try:
+                    val_num = float(str(val).replace("%",""))
+                except:
+                    val_num = val
                 if display_df.columns[c_idx] in pct_cols:
-                    ws.write_number(r_idx, c_idx, float(val)/100, pct_g if float(val)>=0 else pct_r)
+                    ws.write_number(r_idx, c_idx, val_num/100, pct_g if val_num>=0 else pct_r)
                 else:
-                    ws.write_number(r_idx, c_idx, float(val), num_fmt)
+                    ws.write_number(r_idx, c_idx, val_num, num_fmt)
 
     ws.set_column(0, 0, 40)
     ws.set_column(1, len(display_df.columns)-1, 18)
