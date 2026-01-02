@@ -97,61 +97,57 @@ ach_mtd_cat = load_map("Sheet 13", "Product P", "Current Achievement", category_
 ach_ytd_cat = load_map("Sheet 14", "Product P", "Current Achievement TP2", category_file, parser=parse_percent)
 
 # =====================================================
-# FILTERS WITH SELECT ALL / CLEAR ALL
+# FILTERS WITH RADIO (SAFE VERSION)
 # =====================================================
 with st.sidebar:
     st.header("🎯 Filter Data")
 
     # ---------- KATEGORI ----------
     st.subheader("Kategori")
-
-    if "cat_mode" not in st.session_state:
-        st.session_state.cat_mode = "Select All"
-
-    cat_mode = st.radio(
-        "Mode Kategori",
+    cat_radio = st.radio(
+        "Kategori Selection",
         ["Select All", "Clear All"],
-        key="cat_mode"
+        key="cat_radio"
     )
 
-    if cat_mode == "Select All":
-        cat_default = list(cont_cat.keys())
+    if "cat_select" not in st.session_state:
+        st.session_state.cat_select = list(cont_cat.keys())
+
+    if cat_radio == "Select All":
+        st.session_state.cat_select = list(cont_cat.keys())
     else:
-        cat_default = []
+        st.session_state.cat_select = []
 
     cat_select = st.multiselect(
         "Pilih Kategori",
         options=list(cont_cat.keys()),
-        default=cat_default,
-        key="cat_select"
+        default=st.session_state.cat_select
     )
 
     # ---------- FORMAT ----------
     st.subheader("Format")
-
-    if "fmt_mode" not in st.session_state:
-        st.session_state.fmt_mode = "Select All"
-
-    fmt_mode = st.radio(
-        "Mode Format",
+    fmt_radio = st.radio(
+        "Format Selection",
         ["Select All", "Clear All"],
-        key="fmt_mode"
+        key="fmt_radio"
     )
 
-    if fmt_mode == "Select All":
-        fmt_default = list(cont_fmt.keys())
+    if "fmt_select" not in st.session_state:
+        st.session_state.fmt_select = list(cont_fmt.keys())
+
+    if fmt_radio == "Select All":
+        st.session_state.fmt_select = list(cont_fmt.keys())
     else:
-        fmt_default = []
+        st.session_state.fmt_select = []
 
     fmt_select = st.multiselect(
         "Pilih Format",
         options=list(cont_fmt.keys()),
-        default=fmt_default,
-        key="fmt_select"
+        default=st.session_state.fmt_select
     )
 
 # =====================================================
-# BUILD DISPLAY DATA
+# BUILD DISPLAY DATA (NO OTHERS)
 # =====================================================
 rows = []
 
@@ -197,7 +193,6 @@ df = pd.DataFrame(rows, columns=[
 ])
 
 pct_cols = ["Cont YTD", "Growth MTD", "%Gr L3M", "Growth YTD", "Ach MTD", "Ach YTD"]
-
 for col in pct_cols:
     df[col] = df[col].apply(lambda x: f"{x:.1f}%")
 
