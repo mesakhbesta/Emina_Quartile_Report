@@ -6,181 +6,171 @@ from io import BytesIO
 # PAGE CONFIG
 # ===============================
 st.set_page_config(
-    page_title="Dynamic Metrics Report",
-    page_icon="📊",
-    layout="wide"
+    layout="wide",
+    page_title="Dynamic Metrics Report"
 )
 
-# ===============================
-# CUSTOM CSS
-# ===============================
-st.markdown("""
-<style>
-.main-title {
-    font-size: 34px;
-    font-weight: 700;
-}
-.sub-title {
-    font-size: 16px;
-    color: #6b7280;
-}
-.section-title {
-    font-size: 22px;
-    font-weight: 600;
-    margin-top: 25px;
-}
-.kpi-card {
-    background-color: #ffffff;
-    padding: 18px;
-    border-radius: 14px;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.05);
-    text-align: center;
-}
-.kpi-label {
-    font-size: 14px;
-    color: #6b7280;
-}
-.kpi-value {
-    font-size: 26px;
-    font-weight: 700;
-}
-</style>
-""", unsafe_allow_html=True)
+st.title("📊 Dynamic Metrics Report")
+st.caption("Format & Kategori Performance Overview")
 
-# ===============================
-# HEADER
-# ===============================
-st.markdown('<div class="main-title">📊 Dynamic Metrics Report</div>', unsafe_allow_html=True)
-st.markdown('<div class="sub-title">Kategori & Format Performance Overview</div>', unsafe_allow_html=True)
 st.divider()
 
 # ===============================
-# FILE UPLOAD (SIDEBAR)
+# FILE UPLOAD
 # ===============================
 with st.sidebar:
-    st.header("📁 Data Source")
-    format_file = st.file_uploader("Upload Format File", type=["xlsx"])
-    category_file = st.file_uploader("Upload Kategori File", type=["xlsx"])
+    st.header("📁 Upload Data")
+    format_file = st.file_uploader("Format File (.xlsx)", type=["xlsx"])
+    category_file = st.file_uploader("Kategori File (.xlsx)", type=["xlsx"])
 
 if not format_file or not category_file:
-    st.info("⬅️ Upload **Format** dan **Kategori** file terlebih dahulu")
+    st.warning("⚠️ Silakan upload **Format File** dan **Kategori File** terlebih dahulu.")
     st.stop()
 
 # ===============================
-# (SELURUH LOGIKA LOAD MAP TETAP SAMA)
+# HELPER FUNCTIONS
 # ===============================
-# >>> COPY PASTE LOGIKA LOAD DATA KAMU DI SINI TANPA PERUBAHAN <<<
-
-# ===============================
-# FILTERS (SIDEBAR)
-# ===============================
-st.sidebar.divider()
-st.sidebar.header("🎯 Filter")
-
-# kategori
-if "category_select" not in st.session_state:
-    st.session_state["category_select"] = list(cont_map_cat.keys())
-
-cat_mode = st.sidebar.radio(
-    "Kategori Selection",
-    ["Select All", "Clear All"],
-    horizontal=True
-)
-
-st.session_state["category_select"] = (
-    list(cont_map_cat.keys()) if cat_mode == "Select All" else []
-)
-
-st.session_state["category_select"] = st.sidebar.multiselect(
-    "Pilih Kategori",
-    cont_map_cat.keys(),
-    default=st.session_state["category_select"]
-)
-
-# format
-if "format_select" not in st.session_state:
-    st.session_state["format_select"] = list(cont_map_fmt.keys())
-
-fmt_mode = st.sidebar.radio(
-    "Format Selection",
-    ["Select All", "Clear All"],
-    horizontal=True
-)
-
-st.session_state["format_select"] = (
-    list(cont_map_fmt.keys()) if fmt_mode == "Select All" else []
-)
-
-st.session_state["format_select"] = st.sidebar.multiselect(
-    "Pilih Format",
-    cont_map_fmt.keys(),
-    default=st.session_state["format_select"]
-)
-
-# ===============================
-# KPI CARDS
-# ===============================
-total_value_mtd = display_df["Value MTD"].astype(float).sum()
-total_value_ytd = display_df["Value YTD"].astype(float).sum()
-avg_growth = display_df["Growth MTD"].astype(str).str.replace("%", "").astype(float).mean()
-
-col1, col2, col3 = st.columns(3)
-
-with col1:
-    st.markdown(f"""
-    <div class="kpi-card">
-        <div class="kpi-label">Total Value MTD</div>
-        <div class="kpi-value">{total_value_mtd:,.0f}</div>
-    </div>
-    """, unsafe_allow_html=True)
-
-with col2:
-    st.markdown(f"""
-    <div class="kpi-card">
-        <div class="kpi-label">Total Value YTD</div>
-        <div class="kpi-value">{total_value_ytd:,.0f}</div>
-    </div>
-    """, unsafe_allow_html=True)
-
-with col3:
-    color = "green" if avg_growth >= 0 else "red"
-    st.markdown(f"""
-    <div class="kpi-card">
-        <div class="kpi-label">Avg Growth MTD</div>
-        <div class="kpi-value" style="color:{color}">{avg_growth:.1f}%</div>
-    </div>
-    """, unsafe_allow_html=True)
-
-# ===============================
-# TABLE SECTION
-# ===============================
-st.markdown('<div class="section-title">📋 Detail Performance</div>', unsafe_allow_html=True)
-
-def color_growth(val):
+def parse_percent(val):
     try:
-        v = float(str(val).replace("%", ""))
-        if v > 0:
-            return "color: green"
-        elif v < 0:
-            return "color: red"
+        if val is None or (isinstance(val, str) and val.strip() == ""):
+            return 0
+        if isinstance(val, str):
+            return round(float(val.replace("%", "").replace(",", ".")), 1)
+        return round(float(val) * 100, 1)
     except:
-        pass
-    return ""
+        return 0
 
-styled_df = display_df.style \
-    .applymap(color_growth, subset=["Growth MTD", "%Gr L3M", "Growth YTD"]) \
-    .set_properties(**{"text-align": "center"}) \
-    .set_properties(subset=["Produk"], **{"text-align": "left", "color": "#2563eb"})
+def parse_number(val):
+    try:
+        if val is None or (isinstance(val, str) and val.strip() == ""):
+            return 0
+        return round(float(val), 0)
+    except:
+        return 0
 
-st.dataframe(styled_df, use_container_width=True, height=520)
+def load_map(sheet, key_col, val_col, file, skip=0, parser=None):
+    tmp = pd.read_excel(file, sheet_name=sheet, skiprows=skip)
+    tmp = tmp.dropna(subset=[key_col])
+    result = {}
+    for _, r in tmp.iterrows():
+        v = r[val_col] if val_col in r else 0
+        if parser:
+            v = parser(v)
+        result[r[key_col]] = v
+    return result
 
 # ===============================
-# DOWNLOAD
+# LOAD FORMAT DATA
 # ===============================
-st.divider()
+cont_fmt = load_map("Sheet 18", "Product P", "% of Total Current DO TP2 along Product P, Product P Hidden", format_file, parser=parse_percent)
+val_mtd_fmt = load_map("Sheet 1", "Product P", "Current DO", format_file, parser=parse_number)
+val_ytd_fmt = load_map("Sheet 1", "Product P", "Current DO TP2", format_file, parser=parse_number)
+gr_mtd_fmt = load_map("Sheet 4", "Product P", "vs LY", format_file, skip=1, parser=parse_percent)
+gr_l3m_fmt = load_map("Sheet 3", "Product P", "vs L3M", format_file, skip=1, parser=parse_percent)
+gr_ytd_fmt = load_map("Sheet 5", "Product P", "vs LY", format_file, skip=1, parser=parse_percent)
+ach_mtd_fmt = load_map("Sheet 13", "Product P", "Current Achievement", format_file, parser=parse_percent)
+ach_ytd_fmt = load_map("Sheet 14", "Product P", "Current Achievement TP2", format_file, parser=parse_percent)
+
+# ===============================
+# LOAD CATEGORY DATA
+# ===============================
+cont_cat = load_map("Sheet 18", "Product P", "% of Total Current DO TP2 along Product P, Product P Hidden", category_file, parser=parse_percent)
+val_mtd_cat = load_map("Sheet 1", "Product P", "Current DO", category_file, parser=parse_number)
+val_ytd_cat = load_map("Sheet 1", "Product P", "Current DO TP2", category_file, parser=parse_number)
+gr_mtd_cat = load_map("Sheet 4", "Product P", "vs LY", category_file, skip=1, parser=parse_percent)
+gr_l3m_cat = load_map("Sheet 3", "Product P", "vs L3M", category_file, skip=1, parser=parse_percent)
+gr_ytd_cat = load_map("Sheet 5", "Product P", "vs LY", category_file, skip=1, parser=parse_percent)
+ach_mtd_cat = load_map("Sheet 13", "Product P", "Current Achievement", category_file, parser=parse_percent)
+ach_ytd_cat = load_map("Sheet 14", "Product P", "Current Achievement TP2", category_file, parser=parse_percent)
+
+# ===============================
+# FILTERS
+# ===============================
+with st.sidebar:
+    st.header("🎯 Filter Data")
+
+    st.subheader("Kategori")
+    cat_select = st.multiselect(
+        "Pilih Kategori",
+        options=list(cont_cat.keys()),
+        default=list(cont_cat.keys())
+    )
+
+    st.subheader("Format")
+    fmt_select = st.multiselect(
+        "Pilih Format",
+        options=list(cont_fmt.keys()),
+        default=list(cont_fmt.keys())
+    )
+
+# ===============================
+# BUILD TABLE DATA (NO OTHERS)
+# ===============================
+rows = []
+
+for k in cat_select:
+    rows.append([
+        k,
+        cont_cat.get(k, 0),
+        val_mtd_cat.get(k, 0),
+        val_ytd_cat.get(k, 0),
+        gr_mtd_cat.get(k, 0),
+        gr_l3m_cat.get(k, 0),
+        gr_ytd_cat.get(k, 0),
+        ach_mtd_cat.get(k, 0),
+        ach_ytd_cat.get(k, 0),
+    ])
+
+for f in fmt_select:
+    rows.append([
+        f,
+        cont_fmt.get(f, 0),
+        val_mtd_fmt.get(f, 0),
+        val_ytd_fmt.get(f, 0),
+        gr_mtd_fmt.get(f, 0),
+        gr_l3m_fmt.get(f, 0),
+        gr_ytd_fmt.get(f, 0),
+        ach_mtd_fmt.get(f, 0),
+        ach_ytd_fmt.get(f, 0),
+    ])
+
+# ===============================
+# DATAFRAME & DISPLAY
+# ===============================
+df = pd.DataFrame(rows, columns=[
+    "Produk",
+    "Cont YTD",
+    "Value MTD",
+    "Value YTD",
+    "Growth MTD",
+    "%Gr L3M",
+    "Growth YTD",
+    "Ach MTD",
+    "Ach YTD"
+])
+
+pct_cols = ["Cont YTD", "Growth MTD", "%Gr L3M", "Growth YTD", "Ach MTD", "Ach YTD"]
+for c in pct_cols:
+    df[c] = df[c].apply(lambda x: f"{x:.1f}%")
+
+st.subheader("📈 Performance Table")
+st.dataframe(
+    df.style.apply(lambda _: ["color: #1f77b4"] + [""]*(len(df.columns)-1), axis=1),
+    use_container_width=True
+)
+
+# ===============================
+# DOWNLOAD EXCEL
+# ===============================
+output = BytesIO()
+with pd.ExcelWriter(output, engine="xlsxwriter") as writer:
+    df.to_excel(writer, sheet_name="Report", index=False)
+
+output.seek(0)
+
 st.download_button(
-    "⬇️ Download Excel Report",
-    data=output,
-    file_name="Metrics_Report.xlsx",
+    "⬇️ Download Excel",
+    output,
+    "Metrics_Report.xlsx",
     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
 )
