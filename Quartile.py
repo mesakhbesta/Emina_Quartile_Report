@@ -97,26 +97,20 @@ ach_mtd_cat = load_map("Sheet 13", "Product P", "Current Achievement", category_
 ach_ytd_cat = load_map("Sheet 14", "Product P", "Current Achievement TP2", category_file, parser=parse_percent)
 
 # =====================================================
-# FILTERS WITH RADIO (SAFE VERSION)
+# FILTERS WITH RADIO
 # =====================================================
 with st.sidebar:
     st.header("🎯 Filter Data")
 
-    # ---------- KATEGORI ----------
     st.subheader("Kategori")
-    cat_radio = st.radio(
-        "Kategori Selection",
-        ["Select All", "Clear All"],
-        key="cat_radio"
-    )
+    cat_radio = st.radio("Kategori Mode", ["Select All", "Clear All"])
 
     if "cat_select" not in st.session_state:
         st.session_state.cat_select = list(cont_cat.keys())
 
-    if cat_radio == "Select All":
-        st.session_state.cat_select = list(cont_cat.keys())
-    else:
-        st.session_state.cat_select = []
+    st.session_state.cat_select = (
+        list(cont_cat.keys()) if cat_radio == "Select All" else []
+    )
 
     cat_select = st.multiselect(
         "Pilih Kategori",
@@ -124,21 +118,15 @@ with st.sidebar:
         default=st.session_state.cat_select
     )
 
-    # ---------- FORMAT ----------
     st.subheader("Format")
-    fmt_radio = st.radio(
-        "Format Selection",
-        ["Select All", "Clear All"],
-        key="fmt_radio"
-    )
+    fmt_radio = st.radio("Format Mode", ["Select All", "Clear All"])
 
     if "fmt_select" not in st.session_state:
         st.session_state.fmt_select = list(cont_fmt.keys())
 
-    if fmt_radio == "Select All":
-        st.session_state.fmt_select = list(cont_fmt.keys())
-    else:
-        st.session_state.fmt_select = []
+    st.session_state.fmt_select = (
+        list(cont_fmt.keys()) if fmt_radio == "Select All" else []
+    )
 
     fmt_select = st.multiselect(
         "Pilih Format",
@@ -147,70 +135,42 @@ with st.sidebar:
     )
 
 # =====================================================
-# BUILD DISPLAY DATA (NO OTHERS)
+# BUILD DATA
 # =====================================================
 rows = []
 
 for k in cat_select:
     rows.append([
-        k,
-        cont_cat.get(k, 0),
-        val_mtd_cat.get(k, 0),
-        val_ytd_cat.get(k, 0),
-        gr_mtd_cat.get(k, 0),
-        gr_l3m_cat.get(k, 0),
-        gr_ytd_cat.get(k, 0),
-        ach_mtd_cat.get(k, 0),
-        ach_ytd_cat.get(k, 0),
+        k, cont_cat.get(k,0), val_mtd_cat.get(k,0), val_ytd_cat.get(k,0),
+        gr_mtd_cat.get(k,0), gr_l3m_cat.get(k,0), gr_ytd_cat.get(k,0),
+        ach_mtd_cat.get(k,0), ach_ytd_cat.get(k,0)
     ])
 
 for f in fmt_select:
     rows.append([
-        f,
-        cont_fmt.get(f, 0),
-        val_mtd_fmt.get(f, 0),
-        val_ytd_fmt.get(f, 0),
-        gr_mtd_fmt.get(f, 0),
-        gr_l3m_fmt.get(f, 0),
-        gr_ytd_fmt.get(f, 0),
-        ach_mtd_fmt.get(f, 0),
-        ach_ytd_fmt.get(f, 0),
+        f, cont_fmt.get(f,0), val_mtd_fmt.get(f,0), val_ytd_fmt.get(f,0),
+        gr_mtd_fmt.get(f,0), gr_l3m_fmt.get(f,0), gr_ytd_fmt.get(f,0),
+        ach_mtd_fmt.get(f,0), ach_ytd_fmt.get(f,0)
     ])
 
-# =====================================================
-# DATAFRAME & DISPLAY
-# =====================================================
 df = pd.DataFrame(rows, columns=[
-    "Produk",
-    "Cont YTD",
-    "Value MTD",
-    "Value YTD",
-    "Growth MTD",
-    "%Gr L3M",
-    "Growth YTD",
-    "Ach MTD",
-    "Ach YTD"
+    "Produk","Cont YTD","Value MTD","Value YTD",
+    "Growth MTD","%Gr L3M","Growth YTD","Ach MTD","Ach YTD"
 ])
 
-pct_cols = ["Cont YTD", "Growth MTD", "%Gr L3M", "Growth YTD", "Ach MTD", "Ach YTD"]
-for col in pct_cols:
-    df[col] = df[col].apply(lambda x: f"{x:.1f}%")
+pct_cols = ["Cont YTD","Growth MTD","%Gr L3M","Growth YTD","Ach MTD","Ach YTD"]
+for c in pct_cols:
+    df[c] = df[c].apply(lambda x: f"{x:.1f}%")
 
 st.subheader("📈 Performance Table")
-st.dataframe(
-    df.style.apply(
-        lambda _: ["color: #1f77b4"] + [""] * (len(df.columns) - 1),
-        axis=1
-    ),
-    use_container_width=True
-)
+st.dataframe(df, use_container_width=True)
 
 # =====================================================
-# DOWNLOAD EXCEL
+# DOWNLOAD
 # =====================================================
 output = BytesIO()
 with pd.ExcelWriter(output, engine="xlsxwriter") as writer:
-    df.to_excel(writer, sheet_name="Report", index=False)
+    df.to_excel(writer, index=False, sheet_name="Report")
 
 output.seek(0)
 
