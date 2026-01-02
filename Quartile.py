@@ -10,7 +10,7 @@ st.set_page_config(
     page_title="Dynamic Metrics Report"
 )
 
-st.title("📊 Dynamic Metrics Report")
+st.title("📊 Dynamic Metrics Report Category & Format")
 st.caption("Format & Kategori Performance Overview")
 st.divider()
 
@@ -220,4 +220,5 @@ st.download_button(
     "Metrics_Report.xlsx",
     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
 )
+
 
