@@ -2,9 +2,9 @@ import streamlit as st
 import pandas as pd
 from io import BytesIO
 
-# ===============================
+# =====================================================
 # PAGE CONFIG
-# ===============================
+# =====================================================
 st.set_page_config(
     layout="wide",
     page_title="Dynamic Metrics Report"
@@ -12,24 +12,23 @@ st.set_page_config(
 
 st.title("📊 Dynamic Metrics Report")
 st.caption("Format & Kategori Performance Overview")
-
 st.divider()
 
-# ===============================
+# =====================================================
 # FILE UPLOAD
-# ===============================
+# =====================================================
 with st.sidebar:
     st.header("📁 Upload Data")
     format_file = st.file_uploader("Format File (.xlsx)", type=["xlsx"])
     category_file = st.file_uploader("Kategori File (.xlsx)", type=["xlsx"])
 
 if not format_file or not category_file:
-    st.warning("⚠️ Silakan upload **Format File** dan **Kategori File** terlebih dahulu.")
+    st.warning("⚠️ Silakan upload **Format File** dan **Kategori File**.")
     st.stop()
 
-# ===============================
+# =====================================================
 # HELPER FUNCTIONS
-# ===============================
+# =====================================================
 def parse_percent(val):
     try:
         if val is None or (isinstance(val, str) and val.strip() == ""):
@@ -49,20 +48,27 @@ def parse_number(val):
         return 0
 
 def load_map(sheet, key_col, val_col, file, skip=0, parser=None):
-    tmp = pd.read_excel(file, sheet_name=sheet, skiprows=skip)
-    tmp = tmp.dropna(subset=[key_col])
+    df = pd.read_excel(file, sheet_name=sheet, skiprows=skip)
+    df = df.dropna(subset=[key_col])
     result = {}
-    for _, r in tmp.iterrows():
+    for _, r in df.iterrows():
         v = r[val_col] if val_col in r else 0
         if parser:
             v = parser(v)
         result[r[key_col]] = v
     return result
 
-# ===============================
-# LOAD FORMAT DATA
-# ===============================
-cont_fmt = load_map("Sheet 18", "Product P", "% of Total Current DO TP2 along Product P, Product P Hidden", format_file, parser=parse_percent)
+# =====================================================
+# LOAD FORMAT METRICS
+# =====================================================
+cont_fmt = load_map(
+    "Sheet 18",
+    "Product P",
+    "% of Total Current DO TP2 along Product P, Product P Hidden",
+    format_file,
+    parser=parse_percent
+)
+
 val_mtd_fmt = load_map("Sheet 1", "Product P", "Current DO", format_file, parser=parse_number)
 val_ytd_fmt = load_map("Sheet 1", "Product P", "Current DO TP2", format_file, parser=parse_number)
 gr_mtd_fmt = load_map("Sheet 4", "Product P", "vs LY", format_file, skip=1, parser=parse_percent)
@@ -71,10 +77,17 @@ gr_ytd_fmt = load_map("Sheet 5", "Product P", "vs LY", format_file, skip=1, pars
 ach_mtd_fmt = load_map("Sheet 13", "Product P", "Current Achievement", format_file, parser=parse_percent)
 ach_ytd_fmt = load_map("Sheet 14", "Product P", "Current Achievement TP2", format_file, parser=parse_percent)
 
-# ===============================
-# LOAD CATEGORY DATA
-# ===============================
-cont_cat = load_map("Sheet 18", "Product P", "% of Total Current DO TP2 along Product P, Product P Hidden", category_file, parser=parse_percent)
+# =====================================================
+# LOAD CATEGORY METRICS
+# =====================================================
+cont_cat = load_map(
+    "Sheet 18",
+    "Product P",
+    "% of Total Current DO TP2 along Product P, Product P Hidden",
+    category_file,
+    parser=parse_percent
+)
+
 val_mtd_cat = load_map("Sheet 1", "Product P", "Current DO", category_file, parser=parse_number)
 val_ytd_cat = load_map("Sheet 1", "Product P", "Current DO TP2", category_file, parser=parse_number)
 gr_mtd_cat = load_map("Sheet 4", "Product P", "vs LY", category_file, skip=1, parser=parse_percent)
@@ -83,29 +96,27 @@ gr_ytd_cat = load_map("Sheet 5", "Product P", "vs LY", category_file, skip=1, pa
 ach_mtd_cat = load_map("Sheet 13", "Product P", "Current Achievement", category_file, parser=parse_percent)
 ach_ytd_cat = load_map("Sheet 14", "Product P", "Current Achievement TP2", category_file, parser=parse_percent)
 
-# ===============================
-# FILTERS
-# ===============================
+# =====================================================
+# FILTERS (SIMPLE & SAFE)
+# =====================================================
 with st.sidebar:
     st.header("🎯 Filter Data")
 
-    st.subheader("Kategori")
     cat_select = st.multiselect(
-        "Pilih Kategori",
+        "Kategori",
         options=list(cont_cat.keys()),
         default=list(cont_cat.keys())
     )
 
-    st.subheader("Format")
     fmt_select = st.multiselect(
-        "Pilih Format",
+        "Format",
         options=list(cont_fmt.keys()),
         default=list(cont_fmt.keys())
     )
 
-# ===============================
-# BUILD TABLE DATA (NO OTHERS)
-# ===============================
+# =====================================================
+# BUILD DISPLAY DATA (NO OTHERS)
+# =====================================================
 rows = []
 
 for k in cat_select:
@@ -134,9 +145,9 @@ for f in fmt_select:
         ach_ytd_fmt.get(f, 0),
     ])
 
-# ===============================
+# =====================================================
 # DATAFRAME & DISPLAY
-# ===============================
+# =====================================================
 df = pd.DataFrame(rows, columns=[
     "Produk",
     "Cont YTD",
@@ -150,18 +161,22 @@ df = pd.DataFrame(rows, columns=[
 ])
 
 pct_cols = ["Cont YTD", "Growth MTD", "%Gr L3M", "Growth YTD", "Ach MTD", "Ach YTD"]
-for c in pct_cols:
-    df[c] = df[c].apply(lambda x: f"{x:.1f}%")
+
+for col in pct_cols:
+    df[col] = df[col].apply(lambda x: f"{x:.1f}%")
 
 st.subheader("📈 Performance Table")
 st.dataframe(
-    df.style.apply(lambda _: ["color: #1f77b4"] + [""]*(len(df.columns)-1), axis=1),
+    df.style.apply(
+        lambda _: ["color: #1f77b4"] + [""] * (len(df.columns) - 1),
+        axis=1
+    ),
     use_container_width=True
 )
 
-# ===============================
+# =====================================================
 # DOWNLOAD EXCEL
-# ===============================
+# =====================================================
 output = BytesIO()
 with pd.ExcelWriter(output, engine="xlsxwriter") as writer:
     df.to_excel(writer, sheet_name="Report", index=False)
