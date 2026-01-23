@@ -1,6 +1,8 @@
 import streamlit as st
 import pandas as pd
 from io import BytesIO
+import json
+from datetime import datetime
 
 # =====================================================
 # PAGE CONFIG
@@ -97,6 +99,19 @@ ach_mtd_cat = load_map("Sheet 13", "Product P", "Current Achievement", category_
 ach_ytd_cat = load_map("Sheet 14", "Product P", "Current Achievement TP2", category_file, parser=parse_percent)
 
 # =====================================================
+# LOAD FILTER PRESET (UPLOAD JSON)
+# =====================================================
+with st.sidebar:
+    st.header("📌 Preset Filter (JSON)")
+    preset_file = st.file_uploader("Upload Preset Filter (.json)", type=["json"])
+
+if preset_file and "preset_loaded" not in st.session_state:
+    preset = json.load(preset_file)
+    st.session_state.cat_select = preset.get("category", list(cont_cat.keys()))
+    st.session_state.fmt_select = preset.get("format", list(cont_fmt.keys()))
+    st.session_state.preset_loaded = True
+
+# =====================================================
 # FILTERS WITH RADIO (SAFE VERSION)
 # =====================================================
 with st.sidebar:
@@ -144,6 +159,26 @@ with st.sidebar:
         "Pilih Format",
         options=list(cont_fmt.keys()),
         default=st.session_state.fmt_select
+    )
+
+    st.divider()
+
+    # ===========================
+    # SAVE FILTER (DOWNLOAD JSON)
+    # ===========================
+    preset_data = {
+        "category": st.session_state.cat_select,
+        "format": st.session_state.fmt_select
+    }
+
+    now = datetime.now().strftime("%Y-%m-%d_%H-%M")
+    file_name = f"save_filter_{now}.json"
+
+    st.download_button(
+        "💾 Save Filter (Download JSON)",
+        json.dumps(preset_data, indent=2),
+        file_name,
+        mime="application/json"
     )
 
 # =====================================================
@@ -220,5 +255,3 @@ st.download_button(
     "Metrics_Report.xlsx",
     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
 )
-
-
