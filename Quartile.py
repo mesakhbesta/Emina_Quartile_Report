@@ -1,8 +1,6 @@
 import streamlit as st
 import pandas as pd
-import json
 from io import BytesIO
-from datetime import datetime
 
 # =====================================================
 # PAGE CONFIG
@@ -99,40 +97,6 @@ ach_mtd_cat = load_map("Sheet 13", "Product P", "Current Achievement", category_
 ach_ytd_cat = load_map("Sheet 14", "Product P", "Current Achievement TP2", category_file, parser=parse_percent)
 
 # =====================================================
-# PRESET JSON UPLOAD (SAVE FILTER)
-# =====================================================
-with st.sidebar:
-    st.header("📌 Load/Save Filter")
-
-    preset_file = st.file_uploader("Upload Filter Preset (.json)", type=["json"])
-
-    if preset_file and "preset_loaded" not in st.session_state:
-        preset = json.load(preset_file)
-
-        st.session_state.cat_select = preset.get("category", list(cont_cat.keys()))
-        st.session_state.fmt_select = preset.get("format", list(cont_fmt.keys()))
-        st.session_state.preset_loaded = True
-
-        # update radio mode sesuai preset
-        st.session_state.cat_mode = "Select All" if len(st.session_state.cat_select) == len(cont_cat) else "Clear All"
-        st.session_state.fmt_mode = "Select All" if len(st.session_state.fmt_select) == len(cont_fmt) else "Clear All"
-
-    preset_data = {
-        "category": st.session_state.get("cat_select", list(cont_cat.keys())),
-        "format": st.session_state.get("fmt_select", list(cont_fmt.keys()))
-    }
-
-    now = datetime.now().strftime("%Y-%m-%d_%H-%M")
-    file_name = f"save_filter_{now}.json"
-
-    st.download_button(
-        "💾 Save Filter (Download JSON)",
-        json.dumps(preset_data, indent=2),
-        file_name,
-        mime="application/json"
-    )
-
-# =====================================================
 # FILTERS WITH RADIO (SAFE VERSION)
 # =====================================================
 with st.sidebar:
@@ -142,18 +106,15 @@ with st.sidebar:
     if "cat_select" not in st.session_state:
         st.session_state.cat_select = list(cont_cat.keys())
 
-    if "cat_mode" not in st.session_state:
-        st.session_state.cat_mode = "Select All"
-
     cat_mode = st.radio(
         "Kategori Selection",
         ["Select All", "Clear All"],
         key="cat_mode"
     )
 
-    if cat_mode == "Select All" and st.session_state.cat_select != list(cont_cat.keys()):
+    if cat_mode == "Select All":
         st.session_state.cat_select = list(cont_cat.keys())
-    elif cat_mode == "Clear All" and st.session_state.cat_select != []:
+    else:
         st.session_state.cat_select = []
 
     st.session_state.cat_select = st.multiselect(
@@ -168,18 +129,15 @@ with st.sidebar:
     if "fmt_select" not in st.session_state:
         st.session_state.fmt_select = list(cont_fmt.keys())
 
-    if "fmt_mode" not in st.session_state:
-        st.session_state.fmt_mode = "Select All"
-
     fmt_mode = st.radio(
         "Format Selection",
         ["Select All", "Clear All"],
         key="fmt_mode"
     )
 
-    if fmt_mode == "Select All" and st.session_state.fmt_select != list(cont_fmt.keys()):
+    if fmt_mode == "Select All":
         st.session_state.fmt_select = list(cont_fmt.keys())
-    elif fmt_mode == "Clear All" and st.session_state.fmt_select != []:
+    else:
         st.session_state.fmt_select = []
 
     st.session_state.fmt_select = st.multiselect(
