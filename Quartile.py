@@ -11,18 +11,6 @@ st.caption("Format & Kategori Performance Overview")
 st.divider()
 
 # =====================================================
-# INIT SESSION STATE (WAJIB – BIAR GA RESET)
-# =====================================================
-if "lock_cat" not in st.session_state:
-    st.session_state.lock_cat = False
-if "lock_fmt" not in st.session_state:
-    st.session_state.lock_fmt = False
-if "cat_select" not in st.session_state:
-    st.session_state.cat_select = []
-if "fmt_select" not in st.session_state:
-    st.session_state.fmt_select = []
-
-# =====================================================
 # FILE UPLOAD
 # =====================================================
 with st.sidebar:
@@ -33,6 +21,18 @@ with st.sidebar:
 if not format_file or not category_file:
     st.warning("⚠️ Upload **Format File** dan **Kategori File**")
     st.stop()
+
+# =====================================================
+# INIT SESSION STATE (ANTI RESET)
+# =====================================================
+for k, v in {
+    "cat_select": [],
+    "fmt_select": [],
+    "lock_cat": False,
+    "lock_fmt": False,
+}.items():
+    if k not in st.session_state:
+        st.session_state[k] = v
 
 # =====================================================
 # HELPERS
@@ -91,28 +91,25 @@ val_mtd_fmt = load_map("Sheet 1", "Product P", "Current DO", format_file, parser
 val_ytd_fmt = load_map("Sheet 1", "Product P", "Current DO TP2", format_file, parser=parse_number)
 
 # =====================================================
-# SIDEBAR FILTERS (🔒 LOCK STABLE)
+# FILTER SIDEBAR (🔒 LOCK SAFE)
 # =====================================================
 with st.sidebar:
     st.header("🎯 Filter Data")
 
     # ---------- KATEGORI ----------
-    lock_cat = st.toggle(
-        "🔒 Lock Kategori",
-        value=st.session_state.lock_cat,
-        key="lock_cat",
-        help="Jika ON, pilihan kategori tidak berubah saat upload file"
-    )
-
     cat_options = list(cont_cat.keys())
 
-    # INIT DEFAULT JIKA KOSONG
     if not st.session_state.cat_select:
         st.session_state.cat_select = cat_options.copy()
 
-    # SANITIZE (KECUALI LOCK)
     st.session_state.cat_select = sanitize_selection(
-        st.session_state.cat_select, cat_options, lock_cat
+        st.session_state.cat_select, cat_options, st.session_state.lock_cat
+    )
+
+    lock_cat = st.toggle(
+        "🔒 Lock Kategori",
+        value=st.session_state.lock_cat,
+        key="lock_cat"
     )
 
     cat_mode = st.radio(
@@ -138,20 +135,19 @@ with st.sidebar:
     st.divider()
 
     # ---------- FORMAT ----------
-    lock_fmt = st.toggle(
-        "🔒 Lock Format",
-        value=st.session_state.lock_fmt,
-        key="lock_fmt",
-        help="Jika ON, pilihan format tidak berubah saat upload file"
-    )
-
     fmt_options = list(cont_fmt.keys())
 
     if not st.session_state.fmt_select:
         st.session_state.fmt_select = fmt_options.copy()
 
     st.session_state.fmt_select = sanitize_selection(
-        st.session_state.fmt_select, fmt_options, lock_fmt
+        st.session_state.fmt_select, fmt_options, st.session_state.lock_fmt
+    )
+
+    lock_fmt = st.toggle(
+        "🔒 Lock Format",
+        value=st.session_state.lock_fmt,
+        key="lock_fmt"
     )
 
     fmt_mode = st.radio(
@@ -184,7 +180,7 @@ for k in st.session_state.cat_select:
         k,
         cont_cat.get(k, 0),
         val_mtd_cat.get(k, 0),
-        val_ytd_cat.get(k, 0)
+        val_ytd_cat.get(k, 0),
     ])
 
 for f in st.session_state.fmt_select:
@@ -192,7 +188,7 @@ for f in st.session_state.fmt_select:
         f,
         cont_fmt.get(f, 0),
         val_mtd_fmt.get(f, 0),
-        val_ytd_fmt.get(f, 0)
+        val_ytd_fmt.get(f, 0),
     ])
 
 df = pd.DataFrame(rows, columns=[
